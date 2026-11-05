@@ -17,12 +17,26 @@ function latheGeo(key, profile, seg) {
 }
 const _matCache = {};
 function put(parent, mesh, y) { mesh.position.y = y; parent.add(mesh); return mesh; }
-function lam(color) { return _matCache[color] || (_matCache[color] = new THREE.MeshLambertMaterial({ color })); }
+function bootMat(color) { return lam(color); }
+// sombra de contacto bajo los pies (en calidad Baja es la unica sombra)
+let _blob = null;
+function blobMat() {
+  if (_blob) return _blob;
+  const cv = document.createElement('canvas'); cv.width = cv.height = 64; const c = cv.getContext('2d');
+  const g = c.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(0.5, 'rgba(0,0,0,.55)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+  c.fillStyle = g; c.fillRect(0, 0, 64, 64);
+  const t = new THREE.CanvasTexture(cv); LINTEX.add(t);
+  _blob = new THREE.MeshBasicMaterial({ map: t, color: 0x000000, transparent: true, opacity: Q().shadow ? 0.32 : 0.6, depthWrite: false });
+  _blob.userData.lin = true; return _blob;
+}
+function lam(color) { if (!_matCache[color]) { _matCache[color] = new THREE.MeshLambertMaterial({ color }); _matCache[color].userData.hex = color; } return _matCache[color]; }
 
 // textura de la camiseta (lathe: u=0 adelante, u=0.5 espalda; v=0 cintura, v=1 cuello)
 function shirtTexture(kit, num, name, crest) {
-  const W = 256, H = 256, cv = document.createElement('canvas'); cv.width = W; cv.height = H; const c = cv.getContext('2d');
+  const W = 256, H = 256, cv = document.createElement('canvas'); cv.width = W; cv.height = H + 16; const c = cv.getContext('2d');
+  c.fillStyle = '#ffffff'; c.fillRect(0, H, W, 16);
   c.fillStyle = kit.shirt; c.fillRect(0, 0, W, H);
+  c.save(); c.beginPath(); c.rect(0, 0, W, H); c.clip();
   c.fillStyle = kit.shirt2;
   const p = kit.pattern;
   if (p === 'stripes') for (let x = 0; x < W; x += 32) c.fillRect(x + 8, 0, 16, H);
@@ -43,6 +57,7 @@ function shirtTexture(kit, num, name, crest) {
   // numero chico adelante y escudo
   c.font = '900 34px Arial Black, Arial'; c.fillText(String(num), W * 0.93, H * 0.36); c.fillText(String(num), W * 0.93 - W, H * 0.36);
   if (crest) c.drawImage(crest, W * 0.03, H * 0.22, 26, 26);
+  c.restore();
   const t = new THREE.CanvasTexture(cv); return t;
 }
 
@@ -51,21 +66,22 @@ class Rig {
     const j = this.j = {};
     const root = this.root = new THREE.Group();
     const sc = info.height / 1.86; root.scale.set(sc * info.build, sc, sc * info.build);
-    const skin = lam(info.skin), shorts = lam(kit.shorts), socks = lam(kit.socks), boots = lam(info.boots);
+    const skin = lam(info.skin), shorts = lam(kit.shorts), socks = lam(kit.socks), boots = bootMat(info.boots);
     const shirtTex = shirtTexture(kit, info.num, info.last, crest);
     const shirt = this.shirtMat = new THREE.MeshLambertMaterial({ map: shirtTex });
     const sleeve = kit.pattern === 'sleeves' ? lam(kit.shirt2) : lam(kit.shirt);
     const cast = m => { m.castShadow = true; return m; };
-    const body = j.Body = new THREE.Group(); body.position.y = 0.99; root.add(body);
-    const hips = j.Hips = new THREE.Group(); body.add(hips);
+    const body = j.Body = new THREE.Bone(); body.position.y = 0.99; root.add(body);
+    const blob = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.1), blobMat()); blob.rotation.x = -Math.PI / 2; blob.position.y = 0.02; blob.renderOrder = 1; blob.userData.noBake = true; root.add(blob);
+    const hips = j.Hips = new THREE.Bone(); body.add(hips);
     const pelvis = cast(new THREE.Mesh(latheGeo('pelvis', [[0.0001, -0.12], [0.13, -0.1], [0.155, -0.02], [0.15, 0.06], [0.0001, 0.07]]), shorts));
     pelvis.scale.set(1.18, 1, 0.85); hips.add(pelvis);
-    const spine = j.Spine = new THREE.Group(); spine.position.y = 0.05; hips.add(spine);
+    const spine = j.Spine = new THREE.Bone(); spine.position.y = 0.05; hips.add(spine);
     const torso = cast(new THREE.Mesh(latheGeo('torso', [[0.0001, -0.02], [0.142, 0], [0.148, 0.1], [0.16, 0.24], [0.172, 0.36], [0.168, 0.44], [0.13, 0.51], [0.06, 0.545], [0.0001, 0.55]], 18), shirt));
     torso.scale.set(1.3, 1, 0.78); spine.add(torso);
-    const neck = j.Neck = new THREE.Group(); neck.position.y = 0.53; spine.add(neck);
+    const neck = j.Neck = new THREE.Bone(); neck.position.y = 0.53; spine.add(neck);
     put(neck, new THREE.Mesh(capsuleGeo(0.048, 0.055, 0.06, 8), skin), 0.04);
-    const head = j.Head = new THREE.Group(); head.position.y = 0.16; neck.add(head);
+    const head = j.Head = new THREE.Bone(); head.position.y = 0.16; neck.add(head);
     const skull = cast(new THREE.Mesh(new THREE.SphereGeometry(0.105, 16, 12), skin)); skull.scale.set(0.9, 1.1, 1); head.add(skull);
     const jaw = new THREE.Mesh(new THREE.SphereGeometry(0.075, 12, 8), skin); jaw.scale.set(1, 0.8, 1); jaw.position.set(0, -0.055, 0.02); head.add(jaw);
     const dark = lam('#141416');
@@ -88,21 +104,22 @@ class Rig {
     // brazos
     for (const s of [1, -1]) {
       const L = s > 0 ? 'Left' : 'Right';
-      const sh = j[L + 'Arm'] = new THREE.Group(); sh.position.set(s * 0.2, 0.455, 0); spine.add(sh);
+      const sh = j[L + 'Arm'] = new THREE.Bone(); sh.position.set(s * 0.2, 0.455, 0); spine.add(sh);
       put(sh, cast(new THREE.Mesh(capsuleGeo(0.062, 0.056, 0.1, 10), sleeve)), -0.05);
       put(sh, cast(new THREE.Mesh(capsuleGeo(0.046, 0.04, 0.2, 8), skin)), -0.16);
-      const el = j[L + 'ForeArm'] = new THREE.Group(); el.position.y = -0.29; sh.add(el);
+      const el = j[L + 'ForeArm'] = new THREE.Bone(); el.position.y = -0.29; sh.add(el);
       put(el, cast(new THREE.Mesh(capsuleGeo(0.04, 0.033, 0.19, 8), skin)), -0.12);
       const hand = j[L + 'Hand'] = new THREE.Mesh(new THREE.SphereGeometry(0.042, 8, 6), info.gk ? lam(kit.gloves || '#f2f2f2') : skin); hand.scale.set(0.75, 1.15, 0.55); hand.position.y = -0.27; el.add(hand);
       // piernas
-      const hip = j[L + 'UpLeg'] = new THREE.Group(); hip.position.set(s * 0.093, -0.06, 0); hips.add(hip);
+      const hip = j[L + 'UpLeg'] = new THREE.Bone(); hip.position.set(s * 0.093, -0.06, 0); hips.add(hip);
       put(hip, cast(new THREE.Mesh(capsuleGeo(0.088, 0.08, 0.14, 10), shorts)), -0.07);
       put(hip, cast(new THREE.Mesh(capsuleGeo(0.072, 0.056, 0.3, 10), skin)), -0.23);
-      const kn = j[L + 'Leg'] = new THREE.Group(); kn.position.y = -0.43; hip.add(kn);
+      const kn = j[L + 'Leg'] = new THREE.Bone(); kn.position.y = -0.43; hip.add(kn);
       put(kn, cast(new THREE.Mesh(capsuleGeo(0.056, 0.04, 0.32, 10), socks)), -0.2);
-      const ft = j[L + 'Foot'] = new THREE.Group(); ft.position.y = -0.44; kn.add(ft);
-      const boot = cast(new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), boots)); boot.scale.set(0.78, 0.6, 2.05); boot.position.set(0, -0.025, 0.055); ft.add(boot);
+      const ft = j[L + 'Foot'] = new THREE.Bone(); ft.position.y = -0.44; kn.add(ft);
+      const boot = cast(new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), boots)); boot.scale.set(0.8, 0.68, 2.35); boot.position.set(0, -0.03, 0.05); ft.add(boot);
     }
+    this.bake(shirtTex);
     // accesorios de los arbitros: tarjeta (arbitro) y banderin (asistentes) en la mano derecha
     if (info.official === 'ref') {
       this.card = new THREE.Mesh(new THREE.PlaneGeometry(0.075, 0.105), new THREE.MeshBasicMaterial({ color: 0xffe000, side: THREE.DoubleSide }));
@@ -117,8 +134,51 @@ class Rig {
     for (const k of Rig.CH) this.cur[k] = 0;
     this.cur.bodyY = 0.99;
   }
+  // une todas las piezas en UNA malla con esqueleto (SkinnedMesh): 1 dibujo por jugador en vez de ~30
+  bake(shirtTex) {
+    const root = this.root; root.updateMatrixWorld(true);
+    const inv = new THREE.Matrix4().copy(root.matrixWorld).invert();
+    const bones = []; root.traverse(o => { if (o.isBone) bones.push(o); });
+    const parts = []; root.traverse(o => { if (o.isMesh && !o.userData.noBake) parts.push(o); });
+    const list = []; let n = 0;
+    for (const m of parts) {
+      let b = m.parent; while (b && !b.isBone) b = b.parent;
+      const g = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone();
+      g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld));
+      const shirt = !!m.material.map;
+      list.push({ g, bi: Math.max(0, bones.indexOf(b)), shirt, col: shirt ? new THREE.Color(1, 1, 1) : lin(m.material.userData.hex || '#ffffff') });
+      n += g.attributes.position.count;
+    }
+    const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), uv = new Float32Array(n * 2), col = new Float32Array(n * 3), si = new Uint16Array(n * 4), sw = new Float32Array(n * 4);
+    let o = 0; const vb = 16 / 272, vs = 256 / 272;
+    for (const e of list) {
+      const P = e.g.attributes.position, N = e.g.attributes.normal, U = e.g.attributes.uv, c = P.count;
+      pos.set(P.array, o * 3); nor.set(N.array, o * 3);
+      for (let i = 0; i < c; i++) {
+        const k = o + i;
+        if (e.shirt && U) { uv[k * 2] = U.array[i * 2]; uv[k * 2 + 1] = vb + U.array[i * 2 + 1] * vs; } else { uv[k * 2] = 0.5; uv[k * 2 + 1] = vb * 0.4; }
+        col[k * 3] = e.col.r; col[k * 3 + 1] = e.col.g; col[k * 3 + 2] = e.col.b;
+        si[k * 4] = e.bi; sw[k * 4] = 1;
+      }
+      o += c; e.g.dispose();
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+    geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4)); geo.setAttribute('skinWeight', new THREE.BufferAttribute(sw, 4));
+    shirtTex.encoding = THREE.sRGBEncoding; LINTEX.add(shirtTex);
+    shirtTex.anisotropy = Math.min(4, G.renderer.capabilities.getMaxAnisotropy());
+    const mat = Q().std ? new THREE.MeshStandardMaterial({ map: shirtTex, vertexColors: true, skinning: true, roughness: 0.72, metalness: 0, envMapIntensity: 0.6 })
+      : new THREE.MeshLambertMaterial({ map: shirtTex, vertexColors: true, skinning: true });
+    mat.userData.keep = true; mat.userData.lin = true;
+    const sm = new THREE.SkinnedMesh(geo, mat); sm.castShadow = true; sm.frustumCulled = false;
+    root.add(sm); root.updateMatrixWorld(true);
+    sm.bind(new THREE.Skeleton(bones));
+    for (const m of parts) m.parent.remove(m);
+    this.mesh = sm; this.shirtMat = mat;
+  }
   dispose() {
-    this.root.traverse(o => { if (o.isMesh && o.material === this.shirtMat) { this.shirtMat.map.dispose(); this.shirtMat.dispose(); } });
+    if (this.mesh) { this.mesh.geometry.dispose(); this.shirtMat.map.dispose(); this.shirtMat.dispose(); this.mesh.skeleton.dispose(); }
     if (this.root.parent) this.root.parent.remove(this.root);
   }
   // calcula y aplica la pose segun el estado del jugador
@@ -220,7 +280,7 @@ class Rig {
       }
     }
     if (G.ball && G.ball.held === p && !ac) { T.shLX = T.shRX = -0.95; T.shLZ = 0.22; T.shRZ = -0.22; T.elL = T.elR = -1.25; }
-    if (this.card) { const show = !!(ac && ac.type === 'card'); this.card.visible = show; if (show) this.card.material.color.set(ac.color === 'red' ? 0xe8101c : 0xffe000); }
+    if (this.card) { const show = !!(ac && ac.type === 'card'); this.card.visible = show; if (show) this.card.material.color.set(ac.color === 'red' ? 0xe8101c : 0xffe000).convertSRGBToLinear(); }
     // aplicar suavizado y escribir rotaciones en los huesos
     const C = this.cur, f = 1 - Math.exp(-rate * dt);
     for (const k of Rig.CH) C[k] += ((T[k] || 0) - C[k]) * f;

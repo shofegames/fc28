@@ -31,6 +31,7 @@ function startAttract() {
   R.setEnv(G.setup.night, G.setup.cloudy);
   Stadium.drawScreen();
   Hud.show(false); Touch.show(false); Cam.mode = 'menu';
+  R.prep(G.scene);
   $('home').classList.remove('hidden'); UI.go('home');
   $('pause').classList.add('hidden'); $('end').classList.add('hidden'); $('help').classList.add('hidden');
 }
@@ -40,12 +41,14 @@ function startMatch() {
   G.mode = 'match'; G.paused = false;
   makeTeams(S.home, S.away, S.homeKit, S.awayKit, { human: true, formation: S.formation, tactic: S.tactic });
   G.human = new Human(G.teams[0]);
+  Replay.reset();
   G.match = new Match({ halfMin: S.halfMin });
   R.setEnv(S.night, S.cloudy);
   Stadium.drawScreen(G.teams[0].club.short + ' 0 - 0 ' + G.teams[1].club.short);
-  for (const s of ['home', 'setup', 'cfg']) $(s).classList.add('hidden');
+  for (const s of ['home', 'setup', 'cfg', 'train']) $(s).classList.add('hidden');
   $('end').classList.add('hidden');
   Hud.init(); Hud.show(true); Touch.show(true);
+  R.prep(G.scene);
   G.match.start();
   G.human.select(G.match.restart.taker);
   Cam.snap(); Cam.intro();
@@ -94,12 +97,14 @@ function step(h) {
   updatePossession(h);
   G.ball.update(h);
   G.match.checkBall();
+  Replay.rec(h);
   Input.endStep();
 }
 let last = performance.now(), acc = 0, fpsT = 0, fpsN = 0;
 function loop(now) {
   requestAnimationFrame(loop);
   let dt = (now - last) / 1000; last = now; if (dt > 0.1) dt = 0.1;
+  if (!G.paused && G.match && G.match.state === 'replay') { Replay.update(dt); render(dt, Replay.alpha, true); return; }
   if (!G.paused && G.match) {
     acc += dt; let n = 0;
     while (acc >= DT && n < 5) { step(DT); acc -= DT; n++; }
@@ -110,7 +115,7 @@ function loop(now) {
   fpsT += dt; fpsN++;
   if (fpsT > 0.5) { if (CFG.showFps) $('fps').textContent = Math.round(fpsN / fpsT) + ' FPS'; fpsT = 0; fpsN = 0; if (G.mode === 'menu') UI.homeCard(); }
 }
-function render(dt, alpha) {
+function render(dt, alpha, replay) {
   for (const p of G.players) {
     const r = p.rig.root;
     r.position.set(lerp(p.prev.x, p.pos.x, alpha), 0, lerp(p.prev.z, p.pos.z, alpha));
@@ -126,7 +131,7 @@ function render(dt, alpha) {
   const b = G.ball, danger = b ? clamp((Math.abs(b.px) - 32) / 18, 0, 1) * (Math.abs(b.pz) < 22 ? 1 : 0.4) : 0;
   Stadium.update(G.time, Math.max(AU.excite, danger * 0.25));
   AU.update(dt, danger);
-  if (dt > 0) Cam.update(dt);
+  if (dt > 0 && !replay) Cam.update(dt);
   Hud.update(); Touch.update();
   G.renderer.render(G.scene, G.camera);
 }
@@ -136,6 +141,7 @@ function boot() {
   R.init();
   Pitch.build(); Goals.build(); Stadium.build();
   G.ball = new Ball();
+  R.prep(G.scene);
   UI.init();
   Touch.init();
   startAttract();

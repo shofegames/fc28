@@ -25,11 +25,11 @@
     <div class="lsub">FÚTBOL 3D · SHOFE GAMES</div>
     <nav class="hnav">
       <button class="hbtn big" id="bPlay"><b>JUGAR PARTIDO</b><i>Partido de 11 contra 11 contra la computadora</i></button>
-      <button class="hbtn" id="bTrain" disabled><b>ENTRENAMIENTO <em class="soon">PRONTO</em></b><i>Pases, disparos, penales y tiros libres</i></button>
+      <button class="hbtn" id="bTrain"><b>ENTRENAMIENTO</b><i>Pases, disparos, centros, penales y tiros libres</i></button>
       <button class="hbtn" id="bTour" disabled><b>TORNEOS <em class="soon">PRONTO</em></b><i>Copas y ligas con los clubes</i></button>
       <button class="hbtn" id="bCfg"><b>CONFIGURACIÓN</b><i>Gráficos, sonido y controles</i></button>
     </nav>
-    <div class="hfoot">© 2026 shofegames · FC 28</div>
+    <div class="hfoot">© 2026 shofegames · FC 28 <!--@VER--></div>
   </div>
   <div class="hcard" id="hcard"></div>
 </section>
@@ -46,8 +46,13 @@
   <div class="sgo"><button class="cta" id="bStart">COMENZAR PARTIDO</button></div>
 </section>
 
-<!-- ============ CONFIGURACION ============ -->
-<section id="cfg" class="screen hidden">
+<!-- ============ ENTRENAMIENTO ============ -->
+<section id="train" class="screen hidden">
+  <div class="stitle"><button class="back" id="tBack">‹</button><h2>ENTRENAMIENTO</h2><span>Practicá con tu equipo antes de jugar</span></div>
+  <div class="tgrid" id="tGrid"></div>
+</section>
+
+<!-- ============ CONFIGURACION ============ --><section id="cfg" class="screen hidden">
   <div class="stitle"><button class="back" id="cBack">‹</button><h2>CONFIGURACIÓN</h2><span>Se guarda en este navegador</span></div>
   <div class="cgrid">
     <div class="cbox"><h3>Gráficos y sonido</h3><div id="cOpts"></div></div>
@@ -65,7 +70,9 @@
     <div class="sbadd hidden" id="sbAdd">+0</div>
   </div>
   <div id="toasts"></div>
+  <div id="replayTag" class="hidden"><i></i>REPETICIÓN<span>tocá PASE para saltear</span></div>
   <div id="sbInfo"></div>
+  <div id="trainBox" class="hidden"></div>
   <div id="pcard"><div class="pnum" id="pNum">9</div><div class="pinfo"><div class="pname" id="pName">JUGADOR</div><div class="pbar"><div id="pSta"></div></div></div></div>
   <div id="power" class="hidden"><div id="powFill"></div><span id="powLbl">DISPARO</span></div>
   <div id="msg" class="hidden"><div class="mbig" id="msgBig"></div><div class="msm" id="msgSm"></div></div>

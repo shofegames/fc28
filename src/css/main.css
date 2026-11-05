@@ -274,3 +274,24 @@ body.touchmode #power{bottom:auto;top:62px}
   .obox{padding:14px 16px}
   .obtn{padding:10px 14px;font-size:18px}
 }
+
+/* ---------- repeticion ---------- */
+#replayTag{position:absolute;right:24px;top:22px;display:flex;align-items:center;gap:9px;background:rgba(8,11,16,.88);padding:8px 14px;border-radius:9px;font-family:'Barlow Condensed',sans-serif;font-weight:800;letter-spacing:.2em;font-size:18px;animation:fadeIn .3s}
+#replayTag i{width:11px;height:11px;border-radius:50%;background:#ff3b4a;animation:blink 1s infinite}
+#replayTag span{font-size:12px;letter-spacing:.06em;color:var(--muted);font-weight:600}
+@keyframes blink{50%{opacity:.25}}
+
+/* ---------- entrenamiento ---------- */
+#train{background:linear-gradient(180deg,rgba(5,7,10,.88),rgba(5,7,10,.7) 50%,rgba(5,7,10,.92));overflow:auto}
+.tgrid{position:absolute;left:40px;right:40px;top:110px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;max-width:1040px;padding-bottom:30px}
+.dcard{text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px 18px 16px;transition:transform .15s,border-color .15s,background .15s}
+.dcard:hover{transform:translateY(-3px);border-color:var(--acc);background:rgba(184,255,60,.08)}
+.dcard .di{font-size:30px;line-height:1}
+.dcard b{display:block;margin:10px 0 4px;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-style:italic;font-size:24px}
+.dcard span{color:var(--muted);font-size:13.5px;line-height:1.4}
+#trainBox{position:absolute;left:26px;top:22px;display:flex;align-items:stretch;height:38px;font-family:'Barlow Condensed',sans-serif;font-weight:800;filter:drop-shadow(0 6px 16px rgba(0,0,0,.45))}
+#trainBox .tt{display:flex;align-items:center;background:var(--acc);color:var(--ink);padding:0 12px;border-radius:8px 0 0 8px;font-size:18px;letter-spacing:.04em}
+#trainBox .ts{display:flex;align-items:center;gap:4px;background:rgba(8,11,16,.88);padding:0 14px;border-radius:0 8px 8px 0;font-size:18px;font-weight:600}
+#trainBox .ts b{color:var(--acc);font-weight:900;font-size:21px}
+@media (max-width:820px){.tgrid{grid-template-columns:1fr 1fr;left:16px;right:16px}}
+@media (max-height:520px){.tgrid{top:64px}#trainBox{left:12px;top:10px;height:32px}}

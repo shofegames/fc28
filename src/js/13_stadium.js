@@ -73,7 +73,7 @@ const Stadium = {
     // pantalla gigante detras de un arco
     const sc = document.createElement('canvas'); sc.width = 512; sc.height = 192; this.screenCtx = sc.getContext('2d');
     this.screenTex = new THREE.CanvasTexture(sc);
-    const scr = new THREE.Mesh(new THREE.PlaneGeometry(20, 7.5), new THREE.MeshBasicMaterial({ map: this.screenTex }));
+    const scr = new THREE.Mesh(new THREE.PlaneGeometry(20, 7.5), new THREE.MeshBasicMaterial({ map: this.screenTex, toneMapped: false }));
     scr.position.set(-80.5, 19, 0); scr.rotation.y = Math.PI / 2; scene.add(scr);
     const frame = new THREE.Mesh(new THREE.BoxGeometry(0.6, 8.3, 20.8), dark); frame.position.set(-80.9, 19, 0); scene.add(frame);
     this.drawScreen();
@@ -81,14 +81,14 @@ const Stadium = {
   },
   crowd(seats) {
     const n = seats.length / 4; if (!n) return;
-    // persona: torso + cabeza (dos cajas unidas)
-    const torso = new THREE.BoxGeometry(0.44, 0.6, 0.32); torso.translate(0, 0.3, 0);
-    const head = new THREE.BoxGeometry(0.22, 0.24, 0.22); head.translate(0, 0.74, 0);
-    const geo = mergeGeos([torso, head]);
+    // persona: torso con hombros (color de la camiseta) y cabeza aparte (color de piel)
+    const torso = new THREE.CylinderGeometry(0.2, 0.15, 0.62, 7); torso.scale(1.2, 1, 0.75); torso.translate(0, 0.31, 0);
+    const geo = mergeGeos([torso]);
+    const hgeo = new THREE.SphereGeometry(0.115, 8, 6); hgeo.scale(0.95, 1.1, 1); hgeo.translate(0, 0.76, 0);
     const ph = new Float32Array(n), spd = new Float32Array(n);
     for (let i = 0; i < n; i++) { ph[i] = Math.random() * TAU; spd[i] = 5 + Math.random() * 5; }
-    geo.setAttribute('aPhase', new THREE.InstancedBufferAttribute(ph, 1));
-    geo.setAttribute('aSpeed', new THREE.InstancedBufferAttribute(spd, 1));
+    const aP = new THREE.InstancedBufferAttribute(ph, 1), aS = new THREE.InstancedBufferAttribute(spd, 1);
+    geo.setAttribute('aPhase', aP); geo.setAttribute('aSpeed', aS); hgeo.setAttribute('aPhase', aP); hgeo.setAttribute('aSpeed', aS);
     const mat = this.crowdMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
     const U = this.uniforms;
     mat.onBeforeCompile = sh => {
@@ -96,7 +96,7 @@ const Stadium = {
       sh.vertexShader = 'uniform float uTime; uniform float uAmp; attribute float aPhase; attribute float aSpeed;\n' + sh.vertexShader.replace('#include <begin_vertex>',
         '#include <begin_vertex>\n transformed.y += max(0.0, sin(uTime * aSpeed + aPhase)) * uAmp * (0.5 + 0.5 * sin(aPhase * 3.1));');
     };
-    const mesh = new THREE.InstancedMesh(geo, mat, n);
+    const mesh = new THREE.InstancedMesh(geo, mat, n), heads = new THREE.InstancedMesh(hgeo, mat, n);
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), sc = new THREE.Vector3(), pos = new THREE.Vector3();
     const col = new THREE.Color();
     const hc = CLUBS[0].home;
@@ -105,11 +105,12 @@ const Stadium = {
       pos.set(seats[i * 4], seats[i * 4 + 1], seats[i * 4 + 2]);
       q.setFromAxisAngle(up, seats[i * 4 + 3] - Math.PI / 2 + Math.PI);
       const s = 0.9 + Math.random() * 0.2; sc.set(s, s, s);
-      m4.compose(pos, q, sc); mesh.setMatrixAt(i, m4);
+      m4.compose(pos, q, sc); mesh.setMatrixAt(i, m4); heads.setMatrixAt(i, m4);
       col.set(0x777777); mesh.setColorAt(i, col);
+      col.set(SKINS[Math.floor(Math.random() * SKINS.length)]).convertSRGBToLinear(); if (Math.random() < 0.18) col.set(HAIRS[Math.floor(Math.random() * 4)]).convertSRGBToLinear(); heads.setColorAt(i, col); // algunos de espaldas o con gorro
     }
-    mesh.instanceMatrix.needsUpdate = true;
-    G.scene.add(mesh);
+    mesh.instanceMatrix.needsUpdate = true; heads.instanceMatrix.needsUpdate = true;
+    G.scene.add(mesh); G.scene.add(heads);
     this.paintCrowd(hc.shirt, hc.shirt2, '#ffffff', '#ffffff');
   },
   // pinta la hinchada con los colores de los equipos (mas del local)
@@ -120,7 +121,7 @@ const Stadium = {
     for (let i = 0; i < mesh.count; i++) {
       const r = R();
       const c = r < 0.38 ? h1 : r < 0.56 ? h2 : r < 0.68 ? a1 : r < 0.74 ? a2 : shirts[Math.floor(R() * shirts.length)];
-      col.set(c); const k = 0.8 + R() * 0.3; col.r *= k; col.g *= k; col.b *= k;
+      col.set(c).convertSRGBToLinear(); const k = 0.75 + R() * 0.35; col.r *= k; col.g *= k; col.b *= k;
       mesh.setColorAt(i, col);
     }
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
@@ -139,7 +140,7 @@ const Stadium = {
     tex.anisotropy = Math.min(Q().aniso, G.renderer.capabilities.getMaxAnisotropy());
     const mk = (len, x, z, ry, rep) => {
       const t = tex.clone(); t.needsUpdate = true; t.repeat.set(rep, 1); t.offset.x = Math.random();
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(len, 0.9), new THREE.MeshBasicMaterial({ map: t }));
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(len, 0.9), new THREE.MeshBasicMaterial({ map: t, toneMapped: false })); // carteles LED: colores vivos
       m.position.set(x, 0.45, z); m.rotation.y = ry; G.scene.add(m);
       const back = new THREE.Mesh(new THREE.BoxGeometry(len, 0.9, 0.1), new THREE.MeshLambertMaterial({ color: 0x15181d }));
       back.position.set(x, 0.45, z); back.rotation.y = ry; back.translateZ(-0.07); G.scene.add(back);

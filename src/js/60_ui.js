@@ -9,7 +9,8 @@ const Hud = {
     // color del local/visitante en el marcador
     $('sbNH').parentElement.style.boxShadow = 'inset 0 -3px 0 ' + h.kit.shirt;
     $('sbNA').parentElement.style.boxShadow = 'inset 0 -3px 0 ' + a.kit.shirt;
-    this.msg(null); this.info(null); this.power(null); this.added(null);
+    this.msg(null); this.info(null); this.power(null); this.added(null); this.replay(false);
+    $('trainBox').classList.add('hidden'); $('sb').classList.remove('hidden');
     document.querySelectorAll('#sb .reds').forEach(e => e.remove()); $('toasts').innerHTML = '';
   },
   show(v) { $('hud').classList.toggle('hidden', !v); this.shown = v; },
@@ -30,6 +31,7 @@ const Hud = {
     const b = $('msgBig'); b.textContent = big; b.style.animation = 'none'; void b.offsetWidth; b.style.animation = '';
     $('msgSm').textContent = small || ''; $('msgSm').style.display = small ? '' : 'none';
   },
+  replay(on) { $('replayTag').classList.toggle('hidden', !on); $('pcard').style.visibility = on ? 'hidden' : ''; },
   added(n) { const el = $('sbAdd'); if (n == null) { el.classList.add('hidden'); return; } el.textContent = '+' + n; el.classList.remove('hidden'); },
   toast(html, ms) {
     const box = $('toasts'); if (!box || !this.shown) return;
@@ -63,7 +65,8 @@ const Hud = {
 const UI = {
   screen: 'home',
   go(name) {
-    for (const s of ['home', 'setup', 'cfg']) $(s).classList.toggle('hidden', s !== name);
+    for (const s of ['home', 'setup', 'cfg', 'train']) $(s).classList.toggle('hidden', s !== name);
+    if (name === 'train') $('tGrid').innerHTML = Object.keys(DRILLS).map(k => `<button class="dcard" data-d="${k}"><span class="di">${DRILLS[k].icon}</span><b>${DRILLS[k].name}</b><span>${DRILLS[k].desc}</span></button>`).join('') + `<p class="cnote" style="grid-column:1/-1">Entrenás con ${clubById(G.setup.home).name} (se cambia en Jugar partido).</p>`, $('tGrid').querySelectorAll('.dcard').forEach(b => b.onclick = () => { AU.init(); AU.ui(); Touch.fullscreen(); fadeTo(() => startTraining(b.dataset.d)); });
     this.screen = name;
     if (name === 'setup') this.buildSetup();
     if (name === 'cfg') this.buildCfg();
@@ -72,6 +75,8 @@ const UI = {
     const click = (id, f) => $(id).addEventListener('click', e => { AU.init(); AU.ui(); f(e); });
     click('bPlay', () => this.go('setup'));
     click('bCfg', () => this.go('cfg'));
+    click('bTrain', () => this.go('train'));
+    click('tBack', () => { AU.uiBack(); this.go('home'); });
     click('sBack', () => { AU.uiBack(); this.go('home'); });
     click('cBack', () => { AU.uiBack(); this.go('home'); });
     click('bStart', () => { store.set('fc28_setup', G.setup); Touch.fullscreen(); fadeTo(() => startMatch()); });
@@ -82,7 +87,7 @@ const UI = {
     click('sClose', () => Subs.close());
     click('hClose', () => this.help(false));
     click('pCam', () => cycleCam());
-    click('pRestart', () => { togglePause(false); fadeTo(() => startMatch()); });
+    click('pRestart', () => { togglePause(false); fadeTo(() => G.match && G.match.training ? startTraining(Training.drill) : startMatch()); });
     click('pExit', () => { togglePause(false); fadeTo(() => startAttract()); });
     click('eNext', () => { $('end').classList.add('hidden'); if (G.match.state === 'halftime') { G.match.secondHalf(); G.paused = false; } else fadeTo(() => startMatch()); });
     click('eMenu', () => { $('end').classList.add('hidden'); G.paused = false; fadeTo(() => startAttract()); });

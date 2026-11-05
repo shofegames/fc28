@@ -33,6 +33,14 @@ Juego de fútbol 3D (11 contra 11) para el navegador, del usuario (GitHub `shofe
 - `build.ps1 -Dev`, abrir `fc28-dev`, y manejar todo con `__e(...)`: `G.paused=true` y llamar `step(DT)` en bucle para simular minutos en milisegundos.
 - Nunca dejar `__e=` en `index.html`: `grep -c "__e=" index.html` tiene que dar 0 antes de publicar.
 
+## Versiones
+- `versiones/FC 28 vN.html`: copia de cada versión publicada (v1..v4 sacadas del historial de git). `build.ps1 -Save` arma `index.html` con el número siguiente (se ve abajo en el menú) y guarda la copia. Usar `-Save` cada vez que se publica.
+
+## Gráficos (v5)
+- Como Gran Premio 3D: `outputEncoding` sRGB + ACES, cielo con degradé/sol/estrellas (`R.skyMat`), mapa de entorno con `pmrem.fromEquirectangular(R.skyCanvas(S))` (`fromScene` daba negro). `R.prep(root)` pasa colores a lineal y cambia Lambert/Phong por MeshStandard (salvo calidad Baja o `userData.keep`). En r128 las texturas no tienen `userData`: usar `LINTEX` (WeakSet).
+- Cada jugador es UNA `SkinnedMesh` (`Rig.bake`): los huesos son `THREE.Bone` con nombres estilo Mixamo, las piezas se unen con color por vértice y la camiseta usa la textura (franja blanca abajo para el resto). Bajó de ~700 a ~80 dibujos por cuadro.
+- Césped con textura de detalle repetida (`onBeforeCompile`), público con cabezas aparte, carteles LED sin tone mapping, sombra de contacto bajo los pies.
+
 ## Publicación
 - Repo público `shofegames/fc28`, GitHub Pages desde `main` (raíz) → https://shofegames.github.io/fc28/
 - Commits con el mail noreply `283266715+shofegames@users.noreply.github.com`, nunca el gmail.
@@ -40,4 +48,5 @@ Juego de fútbol 3D (11 contra 11) para el navegador, del usuario (GitHub `shofe
 ## Estado (Fase 1, 2026-11-04)
 Hecho: cancha reglamentaria, arcos con redes que se mueven, estadio con público animado, pelota física, 22 jugadores 3D animados, cámara TV (+ TV alta y cercana), controles WASD/JKLI/Q/E/Espacio + joystick, pases (corto, filtrado, largo, centro, de primera), disparos (colocado, potente, vaselina, cabezazo), IA de los dos equipos con formaciones y tácticas, arqueros con estiradas, saques del medio, laterales, córners, saques de arco, goles, dos tiempos, estadísticas, menú, selección de equipos, configuración, pausa.
 Fase 3 (2026-11-05, commit local, falta publicar): árbitro y 2 asistentes 3D (52_referee: diagonal, tarjetas, banderín), faltas con ventaja, amarillas/rojas/doble amarilla y expulsión, tiros libres con barrera, penales (cámara atrás del pateador, el arquero adivina un lado), fuera de juego (snapshot al patear, se cobra al intervenir), tiro libre indirecto, tiempo añadido, cambios/formación/táctica/posiciones desde la pausa o el entretiempo (53_subs), la CPU hace 3 cambios por cansancio.
-Falta: repetición del gol, entrenamiento, torneos, lluvia, suplentes sentados en el banco, modelos GLB definitivos, LOD, controles táctiles listos (falta probar en un celular real).
+v5 (2026-11-05): gráficos nuevos, repetición del gol (`54_replay.js`, se saltea con PASE), Entrenamiento con 6 prácticas (`55_training.js`: libre, disparos, penales, tiros libres, centros, pases).
+Falta: torneos, lluvia, suplentes sentados en el banco, modelos GLB definitivos, probar en un celular real.

@@ -4,14 +4,14 @@ const Pitch = {
   build() {
     const scene = G.scene;
     // cesped con franjas, variaciones de tono y zonas gastadas (arcos y centro)
-    const W = 2048, H = 1024, AW = 124, AH = 84; // el area pintada cubre 124 x 84 m
+    const W = Q().grass, H = W / 2, AW = 124, AH = 84; // el area pintada cubre 124 x 84 m (4096 px en Alta/Ultra)
     const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
     const c = cv.getContext('2d');
     const px = m => (m + AW / 2) / AW * W, pz = m => (m + AH / 2) / AH * H;
-    c.fillStyle = '#3f8a37'; c.fillRect(0, 0, W, H);
+    c.fillStyle = '#336f2c'; c.fillRect(0, 0, W, H);
     const stripes = 20, sw = PITCH.L / stripes;
     for (let i = 0; i < stripes; i++) {
-      c.fillStyle = i % 2 ? '#3a8233' : '#46953d';
+      c.fillStyle = i % 2 ? '#2c6a27' : '#3a8433'; // franjas del corte de pasto
       c.fillRect(px(-PITCH.HL + i * sw), pz(-PITCH.HW - 4), px(-PITCH.HL + (i + 1) * sw) - px(-PITCH.HL + i * sw) + 1, pz(PITCH.HW + 4) - pz(-PITCH.HW - 4));
     }
     // fuera de la cancha un poco mas oscuro
@@ -21,7 +21,7 @@ const Pitch = {
     // ruido de cesped
     const img = c.getImageData(0, 0, W, H), d = img.data;
     for (let i = 0; i < d.length; i += 4) {
-      const n = (Math.random() - 0.5) * 18;
+      const n = (Math.random() - 0.5) * 14;
       d[i] += n * 0.6; d[i + 1] += n; d[i + 2] += n * 0.4;
     }
     c.putImageData(img, 0, 0);
@@ -43,14 +43,31 @@ const Pitch = {
     wear(-PITCH.HL + 8, 0, 8, 10, 0.18); wear(PITCH.HL - 8, 0, 8, 10, 0.18); wear(0, 0, 6, 6, 0.15);
     const tex = new THREE.CanvasTexture(cv);
     tex.anisotropy = Math.min(Q().aniso, G.renderer.capabilities.getMaxAnisotropy());
-    const grass = new THREE.Mesh(new THREE.PlaneGeometry(AW, AH), new THREE.MeshLambertMaterial({ map: tex }));
+    // textura de detalle (hojitas de pasto) que se repite muchas veces: de cerca el cesped se ve definido
+    const dc = document.createElement('canvas'); dc.width = dc.height = 256; const d2 = dc.getContext('2d');
+    d2.fillStyle = 'rgb(128,128,128)'; d2.fillRect(0, 0, 256, 256);
+    for (let i = 0; i < 5200; i++) {
+      const x = Math.random() * 256, y = Math.random() * 256, l = 2 + Math.random() * 5, v = 70 + Math.random() * 130;
+      d2.strokeStyle = `rgb(${v},${v + (Math.random() * 40 - 20)},${v})`; d2.lineWidth = 1;
+      d2.beginPath(); d2.moveTo(x, y); d2.lineTo(x + (Math.random() - 0.5) * 2, y - l); d2.stroke();
+    }
+    const det = new THREE.CanvasTexture(dc); det.wrapS = det.wrapT = THREE.RepeatWrapping;
+    det.anisotropy = tex.anisotropy; LINTEX.add(det);
+    const gm = Q().std ? new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95, metalness: 0, envMapIntensity: 0.35 }) : new THREE.MeshLambertMaterial({ map: tex });
+    gm.userData.keep = true;
+    gm.onBeforeCompile = sh => {
+      sh.uniforms.uDetail = { value: det };
+      sh.fragmentShader = 'uniform sampler2D uDetail;\n' + sh.fragmentShader.replace('#include <map_fragment>',
+        '#include <map_fragment>\n  float gd = texture2D(uDetail, vUv * 110.0).g; float gb = texture2D(uDetail, vUv * 9.0).r;\n  diffuseColor.rgb *= (0.78 + 0.44 * gd) * (0.94 + 0.12 * gb);');
+    };
+    const grass = new THREE.Mesh(new THREE.PlaneGeometry(AW, AH), gm);
     grass.rotation.x = -Math.PI / 2; grass.receiveShadow = true; scene.add(grass);
     // tierra/cemento alrededor
     const apron = new THREE.Mesh(new THREE.PlaneGeometry(360, 300), new THREE.MeshLambertMaterial({ color: 0x2c3a2a }));
     apron.rotation.x = -Math.PI / 2; apron.position.y = -0.02; scene.add(apron);
 
     // lineas como geometria (siempre nitidas)
-    const lm = new THREE.MeshBasicMaterial({ color: 0xf3f5ef, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    const lm = new THREE.MeshBasicMaterial({ color: 0xeef1ea, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
     const lw = 0.12, y = 0.012;
     const lines = new THREE.Group(); scene.add(lines);
     const rect = (x1, z1, x2, z2) => {

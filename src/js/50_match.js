@@ -85,6 +85,7 @@ class Match {
   }
   // ---- fuera de juego ----
   snapOffside(p) {
+    if (this.training) { this.offside = null; return; }
     const team = p.team, ad = team.attackDir, b = G.ball;
     const opp = team.opp.players.map(o => o.pos.x * ad).sort((a, b) => b - a);
     const second = opp.length > 1 ? opp[1] : PITCH.HL;
@@ -110,6 +111,7 @@ class Match {
   }
   // ---- faltas y tarjetas ----
   foul(f, v, kind) {
+    if (this.training) return;
     if (this.state !== 'play' || !f || !v || f.team === v.team) return;
     const team = v.team, gx = f.team.ownGoalX;
     f.team.stats.fouls++; f.stats.fouls = (f.stats.fouls || 0) + 1;
@@ -172,6 +174,7 @@ class Match {
     if (g) { startDive(gk, { t: 0.5, z: g * rand(1.6, 2.9), y: rand(0.4, 1.7), onTarget: true }, teamDiff(gk.team)); gk.vel.z *= 0.8; }
   }
   update(h) {
+    if (this.training) { this.timer += h; if (this.state === 'restart') this.updateRestart(h); Training.update(h); return; }
     this.timer += h;
     if (this.infoT && G.time > this.infoT) { this.infoT = 0; if (!this.restart) Hud.info(null); }
     for (const p of this.leaving) {
@@ -193,7 +196,9 @@ class Match {
       if (G.owner) G.owner.hadBallT = G.time;
     }
     else if (st === 'goal') {
-      if (this.timer > 4.6) { Cam.mode = 'tv'; this.setKickoff(this.concede.side); Hud.msg(null); }
+      // repeticion del gol (en el partido de fondo del menu no hay)
+      if (this.timer > 3.4 && !this.attract && Replay.has()) { this.state = 'replay'; Replay.start(); }
+      else if (this.timer > 4.6) this.afterReplay();
     }
     if (!this.attract && st !== 'goal') this.aiSubs();
   }
@@ -272,6 +277,13 @@ class Match {
   checkBall() {
     if (this.state !== 'play') return;
     const b = G.ball; if (b.held) return;
+    if (this.training) {
+      if (Training.waitT > 0) return;
+      const ax = Math.abs(b.px), az = Math.abs(b.pz);
+      if (ax > PITCH.HL + BALL_R && ax < PITCH.HL + PITCH.goalD + 0.4 && az < PITCH.goalHW && b.py < PITCH.goalH) { if (Math.sign(b.px) === G.teams[0].attackDir) Training.onGoal(); else Training.onOut(); return; }
+      if (ax > PITCH.HL + BALL_R || az > PITCH.HW + BALL_R) Training.onOut();
+      return;
+    }
     const ax = Math.abs(b.px), az = Math.abs(b.pz);
     // despues de un saque la pelota tiene que entrar a la cancha antes de poder volver a salir
     if (!this.inPlay) { if (ax < PITCH.HL && az < PITCH.HW) this.inPlay = true; else if (G.time - this.kickT < 1.5) return; }
@@ -312,6 +324,7 @@ class Match {
     else Cam.goal(null);
     for (const p of team.players) if (p !== scorer && !p.isGK && scorer && Math.hypot(p.pos.x - scorer.pos.x, p.pos.z - scorer.pos.z) < 25) p.celebrateWith = scorer;
   }
+  afterReplay() { Cam.mode = 'tv'; Hud.msg(null); this.setKickoff(this.concede.side); }
   endHalf() {
     AU.whistle(this.half === 1 ? 2 : 3, true);
     this.restart = null; Hud.added(null);
@@ -340,7 +353,7 @@ class Match {
     for (const s of this.pendingSubs) {
       const { team, out, info } = s;
       if (!team.players.includes(out)) { team.subsLeft++; continue; }
-      const np = new Player(team, info, out.slot);
+      const np = new Player(team, info, out.slot); R.prep(np.rig.root);
       np.tag = team.form[out.slot].tag;
       np.teleport(out.pos.x, out.pos.z, out.facing);
       team.players[team.players.indexOf(out)] = np;
