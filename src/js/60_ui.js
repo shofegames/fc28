@@ -9,7 +9,8 @@ const Hud = {
     // color del local/visitante en el marcador
     $('sbNH').parentElement.style.boxShadow = 'inset 0 -3px 0 ' + h.kit.shirt;
     $('sbNA').parentElement.style.boxShadow = 'inset 0 -3px 0 ' + a.kit.shirt;
-    this.msg(null); this.info(null); this.power(null);
+    this.msg(null); this.info(null); this.power(null); this.added(null);
+    document.querySelectorAll('#sb .reds').forEach(e => e.remove()); $('toasts').innerHTML = '';
   },
   show(v) { $('hud').classList.toggle('hidden', !v); this.shown = v; },
   score(side) {
@@ -28,6 +29,26 @@ const Hud = {
     el.classList.remove('hidden'); el.classList.toggle('small', big.length > 8);
     const b = $('msgBig'); b.textContent = big; b.style.animation = 'none'; void b.offsetWidth; b.style.animation = '';
     $('msgSm').textContent = small || ''; $('msgSm').style.display = small ? '' : 'none';
+  },
+  added(n) { const el = $('sbAdd'); if (n == null) { el.classList.add('hidden'); return; } el.textContent = '+' + n; el.classList.remove('hidden'); },
+  toast(html, ms) {
+    const box = $('toasts'); if (!box || !this.shown) return;
+    const d = document.createElement('div'); d.className = 'toast'; d.innerHTML = html; box.appendChild(d);
+    while (box.children.length > 4) box.firstChild.remove();
+    setTimeout(() => { d.classList.add('out'); setTimeout(() => d.remove(), 450); }, ms || 3500);
+  },
+  card(p, color) {
+    const c = color === 'yellow' ? '#ffe000' : '#e8101c';
+    const extra = color === 'red2' ? '<i class="cardi" style="background:#ffe000;margin-left:-6px"></i>' : '';
+    this.toast(`<i class="cardi" style="background:${c}"></i>${extra}<span>${p.info.num} ${p.name.toUpperCase()} · ${p.team.club.short}</span>`, 4200);
+  },
+  sub(team, out, inp) { this.toast(`<span class="arr">${team.club.short}</span><span class="in">▲ ${inp.info.num} ${inp.name.toUpperCase()}</span><span class="outp">▼ ${out.info.num} ${out.name.toUpperCase()}</span>`, 4500); },
+  updateReds() {
+    G.teams.forEach((t, i) => {
+      const el = $(i === 0 ? 'sbNH' : 'sbNA'); let r = el.parentElement.querySelector('.reds');
+      if (!r) { r = document.createElement('span'); r.className = 'reds'; el.after(r); }
+      r.innerHTML = '<i></i>'.repeat(t.stats.red);
+    });
   },
   info(t) { const el = $('sbInfo'); if (!t) { el.classList.remove('on'); return; } el.textContent = t; el.classList.add('on'); },
   update() {
@@ -56,6 +77,9 @@ const UI = {
     click('bStart', () => { store.set('fc28_setup', G.setup); fadeTo(() => startMatch()); });
     click('pCont', () => togglePause(false));
     click('pHelp', () => this.help(true));
+    click('pSubs', () => Subs.open());
+    click('eSubs', () => Subs.open());
+    click('sClose', () => Subs.close());
     click('hClose', () => this.help(false));
     click('pCam', () => cycleCam());
     click('pRestart', () => { togglePause(false); fadeTo(() => startMatch()); });
@@ -150,6 +174,8 @@ const UI = {
       ['PRECISIÓN DE PASES', (h.stats.passes ? Math.round(h.stats.passOk / h.stats.passes * 100) : 0) + '%', (a.stats.passes ? Math.round(a.stats.passOk / a.stats.passes * 100) : 0) + '%', h.stats.passOk / (h.stats.passes || 1), a.stats.passOk / (a.stats.passes || 1)],
       ['QUITES', h.stats.tackles, a.stats.tackles], ['ATAJADAS', h.stats.saves, a.stats.saves],
       ['CÓRNERS', h.stats.corners, a.stats.corners], ['FALTAS', h.stats.fouls, a.stats.fouls],
+      ['TARJETAS', h.stats.yellow + ' / ' + h.stats.red, a.stats.yellow + ' / ' + a.stats.red, h.stats.yellow + h.stats.red * 2, a.stats.yellow + a.stats.red * 2],
+      ['FUERAS DE JUEGO', h.stats.offsides, a.stats.offsides],
     ];
     return rows.map(r => {
       const va = r[3] != null ? r[3] : Number(r[1]), vb = r[4] != null ? r[4] : Number(r[2]), t = va + vb || 1;
@@ -160,10 +186,12 @@ const UI = {
     G.paused = true;
     const [h, a] = G.teams;
     $('eTitle').textContent = final ? 'FINAL DEL PARTIDO' : 'ENTRETIEMPO';
-    const sc = side => G.match.events.filter(e => e.team === side).map(e => `${e.name} ${e.min}'${e.own ? ' (e/c)' : ''}`).join(', ');
+    const sc = side => G.match.events.filter(e => e.team === side).map(e => `⚽ ${e.name} ${e.min}'${e.own ? ' (e/c)' : ''}`)
+      .concat(G.match.cards.filter(c => c.team === side && c.color !== 'yellow').map(c => `🟥 ${c.name} ${c.min}'`)).join(' · ');
     $('eScore').innerHTML = `<div class="en r">${h.club.name}</div><img src="${crestURL(h.club)}"><div class="eg">${h.score} - ${a.score}</div><img src="${crestURL(a.club)}"><div class="en">${a.club.name}</div>`;
     $('eStats').innerHTML = `<div class="escorers"><span>${sc(0)}</span><span>${sc(1)}</span></div>` + this.statsHTML() + (final ? this.bestPlayers() : '');
     $('eNext').textContent = final ? 'REVANCHA' : 'SEGUNDO TIEMPO';
+    $('eSubs').classList.toggle('hidden', final);
     $('end').classList.remove('hidden');
   },
   bestPlayers() {

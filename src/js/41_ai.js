@@ -67,8 +67,9 @@ function formationTarget(p) {
       const off = lastDefenderX(team);
       // desmarque: cada tanto pica al espacio detras de la defensa
       p.brain.runT -= DT;
-      if (p.brain.runT <= 0) { p.brain.run = Math.random() < 0.45 ? 1.6 : 0; p.brain.runT = rand(3, 7); }
-      if (p.brain.run > 0 && G.owner && G.owner !== p) { p.brain.run -= DT; x = Math.max(x, off + 5); z = z * 0.6; }
+      if (p.brain.runT <= 0) { p.brain.run = Math.random() < 0.45 ? 1.6 : 0; p.brain.runT = rand(3, 7); p.brain.runOff = Math.random() < 0.22 ? 1.2 : -0.35; } // a veces se adelanta de mas (fuera de juego)
+      // desmarque en la linea del ultimo defensor (habilitado) para recibir el pase filtrado al espacio
+      if (p.brain.run > 0 && G.owner && G.owner !== p) { p.brain.run -= DT; x = off + (p.brain.runOff || -0.35); z = z * 0.6; }
       else x = Math.min(x, off - 0.6);
       if (bx > 25) { x = Math.max(x, 38); z = z * 0.55; } // entrar al area en ataques avanzados
     }
@@ -130,6 +131,14 @@ function brain(p, h) {
   const r = G.match.restart;
   if (r) { // en saques: el que saca va a la pelota, los demas a su lugar
     if (r.kickoff) { p.want.x = p.want.z = 0; p.wantFace = team.attackDir > 0 ? Math.PI / 2 : -Math.PI / 2; return; }
+    // barrera
+    if (r.wall) { const w = r.wall.find(w => w.p === p); if (w) { moveTo(p, w.x, w.z, 'run'); faceBall(p); return; } }
+    // penal: todos afuera del area y de la medialuna
+    if (r.type === 'penalty') {
+      const gxA = r.team.oppGoalX, sg = Math.sign(gxA);
+      const z = clamp((p.slot - 5) * 2.4 + (p.team === r.team ? 1.2 : 0), -19, 19);
+      moveTo(p, gxA - sg * 21.5, z); faceBall(p); return;
+    }
     const t = formationTarget(p); moveTo(p, t.x, t.z); faceBall(p); return;
   }
   if (o === p) { carrierAI(p, h); return; }
@@ -185,11 +194,12 @@ function press(p, o, h) {
   // si el compañero humano esta encima, la IA acompaña sin tirarse
   if (team.human && G.human && G.human.p && Math.hypot(G.human.p.pos.x - o.pos.x, G.human.p.pos.z - o.pos.z) < 4) return;
   p.brain.tk -= h;
-  if (d < 2.0 && p.brain.tk <= 0 && !p.action) {
+  const dBall = Math.hypot(G.ball.px - p.pos.x, G.ball.pz - p.pos.z);
+  if (dBall < 1.9 && p.brain.tk <= 0 && !p.action) {
     p.brain.tk = rand(0.5, 1.3) / (dd.press * tac.pressK);
     const r = Math.random();
     if (r < 0.5 * dd.press) startTackle(p);
-    else if (r < 0.56 * dd.press && d < 1.4 && G.setup.diff >= 2) startSlide(p);
+    else if (r < 0.56 * dd.press && dBall < 1.6 && (G.setup.diff >= 2 || Math.random() < 0.4)) startSlide(p);
   }
 }
 
@@ -215,7 +225,7 @@ function carrierAI(p, h) {
     const ds = 0.25 + space / 8 * 0.6 - (near.d < 2 ? 0.45 : 0) + tac.dribble + (rx < -30 ? -0.3 : 0);
     opts.push({ s: ds + randn() * dd.noise, f: null });
     // en peligro en el area propia: reventarla
-    if (rx < -38 && near.d < 2.5) opts.push({ s: 1.0 + randn() * 0.2, f: () => startKick(p, 'clear', { dir: { x: ad, z: -Math.sign(p.pos.z) * 0.6 }, power: 0.8 }) });
+    if (rx < -30 && near.d < 2.5) opts.push({ s: 0.9 + randn() * 0.2, f: () => startKick(p, 'clear', { dir: Math.random() < 0.5 ? { x: ad * 0.5, z: (Math.sign(p.pos.z) || 1) } : { x: ad, z: -Math.sign(p.pos.z) * 0.5 }, power: 0.8 }) });
     let best = opts[0]; for (const o of opts) if (o.s > best.s) best = o;
     if (best.f) { best.f(); return; }
   }
@@ -267,7 +277,7 @@ function bestPass(p, pressure) {
     if (m.isGK) s -= pressure < 2 ? 0.3 : 1.2;
     let kind = lob ? 'lob' : 'pass';
     // pase filtrado al delantero que pica
-    if (team.form[m.slot].role === 'FW' && m.brain.run > 0 && gain > 4) {
+    if (team.form[m.slot].role === 'FW' && m.brain.run > 0 && gain > 4 && m.pos.x * ad < lastDefenderX(team) - 0.2) {
       const fx = m.pos.x + ad * 9, fz = m.pos.z;
       const rT = passRisk(p, fx, fz, false, null);
       if (rT < 0.5) { kind = 'through'; s = gain * 0.03 + 0.5 - rT; }

@@ -1,6 +1,8 @@
 // ===== Arranque y bucle principal (fisica y logica a 60 pasos fijos por segundo) =====
 function clearMatch() {
   for (const t of G.teams) t.dispose();
+  if (G.match) for (const p of G.match.leaving) p.rig.dispose();
+  Refs.dispose();
   if (G.human) G.human.dispose();
   G.teams = []; G.players = []; G.human = null; G.match = null; G.owner = null; G.passInfo = null; G.lastTouch = null;
 }
@@ -13,6 +15,7 @@ function makeTeams(homeId, awayId, homeKit, awayKit, opts) {
   G.teams = [home, away];
   home.build(away.kit); away.build(home.kit);
   G.players = home.players.concat(away.players);
+  Refs.create();
   Stadium.paintCrowd(home.kit.shirt, home.kit.shirt2, away.kit.shirt, away.kit.shirt2);
 }
 // partido de fondo en el menu (IA contra IA)
@@ -87,6 +90,7 @@ function step(h) {
   aiUpdate(h);
   for (const p of G.players) p.update(h);
   separate();
+  Refs.update(h);
   updatePossession(h);
   G.ball.update(h);
   G.match.checkBall();
@@ -113,6 +117,8 @@ function render(dt, alpha) {
     r.rotation.y = p.facing;
     if (dt > 0) p.rig.animate(dt, p);
   }
+  if (G.match) for (const p of G.match.leaving) { p.rig.root.position.set(p.pos.x, 0, p.pos.z); p.rig.root.rotation.y = p.facing; if (dt > 0) p.rig.animate(dt, p); }
+  Refs.render(alpha, dt);
   if (G.ball) G.ball.render(alpha, dt);
   if (G.human) G.human.render(alpha);
   Goals.update(dt); Pitch.update(G.time);

@@ -62,7 +62,9 @@
     <div class="sbs"><span id="sbGH">0</span><i>-</i><span id="sbGA">0</span></div>
     <div class="sbt"><span id="sbNA">VIS</span><img id="sbCA" alt=""></div>
     <div class="sbc" id="sbClock">00:00</div>
+    <div class="sbadd hidden" id="sbAdd">+0</div>
   </div>
+  <div id="toasts"></div>
   <div id="sbInfo"></div>
   <div id="pcard"><div class="pnum" id="pNum">9</div><div class="pinfo"><div class="pname" id="pName">JUGADOR</div><div class="pbar"><div id="pSta"></div></div></div></div>
   <div id="power" class="hidden"><div id="powFill"></div><span id="powLbl">DISPARO</span></div>
@@ -77,6 +79,7 @@
     <h2>PAUSA</h2>
     <div class="ostats" id="pStats"></div>
     <button class="obtn" id="pCont">CONTINUAR</button>
+    <button class="obtn" id="pSubs">CAMBIOS Y TÁCTICA</button>
     <button class="obtn" id="pHelp">CONTROLES</button>
     <button class="obtn" id="pCam">CÁMARA: TV</button>
     <button class="obtn" id="pRestart">REINICIAR PARTIDO</button>
@@ -94,14 +97,25 @@
   </div>
 </section>
 
-<!-- ============ ENTRETIEMPO / FINAL ============ -->
-<section id="end" class="overlay hidden">
+<!-- ============ CAMBIOS Y TACTICA ============ -->
+<section id="subs" class="overlay hidden">
+  <div class="obox wide subsbox">
+    <h2>CAMBIOS Y TÁCTICA</h2>
+    <div class="subtop"><div><label>FORMACIÓN</label><select id="sForm"></select></div><div><label>TÁCTICA</label><select id="sTac"></select></div><div class="sleft" id="sLeft"></div></div>
+    <p class="cnote" id="sHint">Tocá un jugador de la cancha y después un suplente para hacer el cambio. Tocando dos jugadores de la cancha intercambian posiciones.</p>
+    <div class="subcols"><div><h4>EN LA CANCHA</h4><div id="sField"></div></div><div><h4>SUPLENTES</h4><div id="sBench"></div></div></div>
+    <button class="obtn" id="sClose">LISTO</button>
+  </div>
+</section>
+
+<!-- ============ ENTRETIEMPO / FINAL ============ --><section id="end" class="overlay hidden">
   <div class="obox wide">
     <div class="etitle" id="eTitle">FINAL DEL PARTIDO</div>
     <div class="escore" id="eScore"></div>
     <div class="estats" id="eStats"></div>
     <div class="ebtns">
       <button class="obtn" id="eNext">SEGUNDO TIEMPO</button>
+      <button class="obtn" id="eSubs">CAMBIOS</button>
       <button class="obtn dim" id="eMenu">MENÚ</button>
     </div>
   </div>

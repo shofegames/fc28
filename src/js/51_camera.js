@@ -34,6 +34,14 @@ const Cam = {
       fov = P.fov - near * 2.5 + fast * 3 + (b.py > 4 ? 2 : 0);
       px = clamp(this.fx * 0.86, -42, 42); py = P.h - near * 2; pz = P.d + this.fz * 0.18;
       lx = this.fx; ly = 0; lz = this.fz * P.look + 1.5;
+      // penal: camara atras del que patea
+      const r = G.match && G.match.restart;
+      if (r && r.type === 'penalty' && r.ready) G.match.penCam = { x: r.spot.x, gx: r.team.oppGoalX, until: G.time + 2.4 };
+      const pc = G.match && G.match.penCam;
+      if (pc && G.time < pc.until && this.mode === 'tv' && (!r || r.type === 'penalty')) {
+        const gx = pc.gx, sg = Math.sign(gx);
+        px = pc.x - sg * 10; py = 3.6; pz = 4.5; lx = gx; ly = 1.2; lz = 0; fov = 40; k = 3;
+      }
       if (this.mode === 'intro') {
         // barrido inicial desde lo alto del estadio
         const u = smooth(clamp(this.t / 2.6, 0, 1));

@@ -74,8 +74,11 @@ class Player {
     // la zancada es mas corta de costado y para atras
     const vf = sp > 0.05 ? Math.abs(Math.cos(moveDir - this.facing)) : 1;
     // energia
-    if (this.sprint && sp > 5) this.stamina = Math.max(0, this.stamina - h * 0.011 * (1.45 - this.a.phy / 100));
-    else this.stamina = Math.min(1, this.stamina + h * (sp < 2 ? 0.006 : 0.002));
+    // el cansancio va en tiempo de partido: con tiempos cortos se cansan mas rapido por segundo real
+    const fk = G.match ? clamp(270 / G.match.halfLen, 0.4, 3) : 1;
+    if (this.sprint && sp > 5) this.stamina = Math.max(0, this.stamina - h * 0.03 * fk * (1.45 - this.a.phy / 100));
+    else if (sp > 3) this.stamina = Math.max(0, this.stamina - h * 0.0035 * fk);
+    else this.stamina = Math.min(1, this.stamina + h * (sp < 2 ? 0.0022 : 0.0006) * fk);
     // fase de la carrera: avanza con la distancia recorrida (los pies no patinan)
     this.phase += sp * h / ((1.0 + sp * 0.17) * (0.55 + 0.45 * vf)) * TAU;
   }

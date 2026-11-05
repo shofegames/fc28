@@ -103,6 +103,15 @@ class Rig {
       const ft = j[L + 'Foot'] = new THREE.Group(); ft.position.y = -0.44; kn.add(ft);
       const boot = cast(new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), boots)); boot.scale.set(0.78, 0.6, 2.05); boot.position.set(0, -0.025, 0.055); ft.add(boot);
     }
+    // accesorios de los arbitros: tarjeta (arbitro) y banderin (asistentes) en la mano derecha
+    if (info.official === 'ref') {
+      this.card = new THREE.Mesh(new THREE.PlaneGeometry(0.075, 0.105), new THREE.MeshBasicMaterial({ color: 0xffe000, side: THREE.DoubleSide }));
+      this.card.position.set(0, -0.33, 0.03); this.card.visible = false; j.RightForeArm.add(this.card);
+    } else if (info.official === 'ar') {
+      const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.5, 5), lam('#222222')); stick.position.set(0, -0.3, 0.2); stick.rotation.x = Math.PI / 2; j.RightForeArm.add(stick);
+      const fl = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.22), new THREE.MeshLambertMaterial({ color: 0xffd000, side: THREE.DoubleSide }));
+      fl.position.set(0, -0.2, 0.32); fl.rotation.y = Math.PI / 2; j.RightForeArm.add(fl);
+    }
     // pose actual (se suaviza hacia la pose objetivo)
     this.cur = {}; this.tgt = {};
     for (const k of Rig.CH) this.cur[k] = 0;
@@ -181,7 +190,14 @@ class Rig {
         const k = keyf(u, [[0, 0], [0.12, 1], [0.75, 1], [1, 0]]);
         T.bodyRX = -1.15 * k; T.bodyY = lerp(0.99, 0.32, k); T.hipRX = lerp(T.hipRX, -1.45, k); T.knR = lerp(T.knR, 0.1, k); T.hipLX = lerp(T.hipLX, -0.35, k); T.knL = lerp(T.knL, 1.7, k);
         T.shLX = T.shRX = 0.7 * k; T.shLZ = 0.7 * k; T.shRZ = -0.7 * k; T.elL = T.elR = -0.3; T.spX = 0.35 * k; T.hdX = 0.5 * k;
-      } else if (ac.type === 'header') {
+      } else if (ac.type === 'card' || ac.type === 'flag') {
+        const k = keyf(u, [[0, 0], [0.15, 1], [0.85, 1], [1, 0]]);
+        T.shRX = lerp(T.shRX, -3.0, k); T.shRZ = -0.08; T.elR = -0.05; T.hdX = -0.2 * k;
+        if (ac.type === 'flag') { T.shLX = -0.2; }
+      } else if (ac.type === 'point') {
+        const k = keyf(u, [[0, 0], [0.15, 1], [0.85, 1], [1, 0]]);
+        T.shRX = lerp(T.shRX, -1.55, k); T.elR = -0.05; T.shRZ = -0.15;
+      } else if (ac.type === 'header' || ac.type === 'jump') {
         const k = keyf(u, [[0, 0], [uc, 1], [1, 0]]);
         T.bodyY = 0.99 + Math.sin(Math.PI * clamp(u, 0, 1)) * 0.42 * (ac.jump || 1);
         T.spX = keyf(u, [[0, 0], [uc * 0.7, -0.35], [uc, 0.45], [1, 0.1]]); T.hdX = keyf(u, [[0, 0], [uc * 0.7, -0.3], [uc, 0.4], [1, 0]]);
@@ -204,6 +220,7 @@ class Rig {
       }
     }
     if (G.ball && G.ball.held === p && !ac) { T.shLX = T.shRX = -0.95; T.shLZ = 0.22; T.shRZ = -0.22; T.elL = T.elR = -1.25; }
+    if (this.card) { const show = !!(ac && ac.type === 'card'); this.card.visible = show; if (show) this.card.material.color.set(ac.color === 'red' ? 0xe8101c : 0xffe000); }
     // aplicar suavizado y escribir rotaciones en los huesos
     const C = this.cur, f = 1 - Math.exp(-rate * dt);
     for (const k of Rig.CH) C[k] += ((T[k] || 0) - C[k]) * f;

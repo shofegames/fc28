@@ -18,7 +18,7 @@ function setOwner(p) {
     G.passInfo = null;
   }
   if (lt && lt.team !== p.team) p.team.recovered = G.time;
-  G.lastTouch = p;
+  touchBy(p);
   if (G.human && prev !== p) G.human.onPossession(p, prev);
 }
 
@@ -74,7 +74,8 @@ function receive(p) {
   b.wx = b.wy = b.wz = 0; b.trajDirty = true; G.kickSeq++;
   AU.touch();
 }
-function touchBy(p) { G.lastTouch = p; }
+// todo toque pasa por aca: sirve para el fuera de juego y los tiros libres indirectos
+function touchBy(p) { if (G.match && G.match.state === 'play') G.match.involve(p); G.lastTouch = p; }
 
 // conduccion: la pelota va adelante del pie con toques; corriendo se la empuja mas lejos
 function dribble(o, h) {
@@ -264,12 +265,14 @@ function computeHeader(p, o) {
 function startTackle(p) {
   if (p.action || p.tackleCd > 0 || p.stun > 0) return;
   p.action = { type: 'tackle', t: 0, dur: 0.42, contact: 0.15, fired: false };
+  const b = G.ball; p.facing = Math.atan2(b.px - p.pos.x, b.pz - p.pos.z); // se tira hacia la pelota
   p.tackleCd = 0.75;
   const f = p.fwd(); p.vel.x += f.x * 1.5; p.vel.z += f.z * 1.5;
 }
 function resolveTackle(p) {
-  const b = G.ball, fp = p.foot(0.75), d = Math.hypot(b.px - fp.x, b.pz - fp.z);
-  if (b.held || d > 1.05 || b.py > 0.8) { p.stun = 0.25; return; }
+  const b = G.ball, fp = p.foot(0.75);
+  const bx = b.px - p.pos.x, bz = b.pz - p.pos.z, dB = Math.hypot(bx, bz), fw = p.fwd();
+  if (b.held || dB > 1.75 || b.py > 0.8 || (bx * fw.x + bz * fw.z) / (dB || 1) < 0.2) { p.stun = 0.25; return; }
   const o = G.owner, f = p.fwd();
   if (o && o.team !== p.team) {
     const dd = teamDiff(p.team);
@@ -279,7 +282,12 @@ function resolveTackle(p) {
       b.launch(p.vel.x * 0.4 + f.x * 3.2 + randn(), 0, p.vel.z * 0.4 + f.z * 3.2 + randn());
       G.owner = null; touchBy(p); o.stun = 0.45; o.controlCd = 0.4; p.controlCd = 0;
       p.stats.tackles++; p.team.stats.tackles++; AU.touch(); G.passInfo = null;
-    } else { p.stun = 0.5; }
+    } else {
+      p.stun = 0.5;
+      // si no toca la pelota y se lleva al rival: falta
+      const close = Math.hypot(o.pos.x - p.pos.x, o.pos.z - p.pos.z) < 1.5;
+      if (close && Math.random() < (behind ? 0.55 : 0.2) * (1.15 - p.a.def / 100)) { o.action = { type: 'fall', t: 0, dur: 1.0, contact: 9, fired: true }; o.stun = 1.0; G.owner = null; if (G.match) G.match.foul(p, o, 'tackle'); }
+    }
   } else if (!o) {
     b.launch(f.x * 5 + p.vel.x * 0.3, 0, f.z * 5 + p.vel.z * 0.3); touchBy(p); AU.touch();
   }
@@ -308,7 +316,7 @@ function slideCheck(p, ac) {
   for (const o of p.team.opp.players) {
     if (o.action && o.action.type === 'fall') continue;
     const dd = Math.hypot(o.pos.x - fp.x, o.pos.z - fp.z);
-    if (dd < 0.55) { o.action = { type: 'fall', t: 0, dur: 1.0, contact: 9, fired: true }; o.stun = 1.0; if (G.owner === o) G.owner = null; ac.hit = true; p.team.stats.fouls++; break; }
+    if (dd < 0.55) { o.action = { type: 'fall', t: 0, dur: 1.0, contact: 9, fired: true }; o.stun = 1.0; if (G.owner === o) G.owner = null; ac.hit = true; if (G.match) G.match.foul(p, o, 'slide'); break; }
   }
 }
 // punto donde el jugador puede alcanzar la pelota (usa la trayectoria predicha)

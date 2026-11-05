@@ -115,19 +115,21 @@ class Ball {
   }
   // choque con el cuerpo de los jugadores (torso; las piernas las maneja el control de pelota)
   bodies() {
-    if (this.py < 0.45 || this.py > 2.0) return;
+    if (this.py < 0.45 || this.py > 2.5) return;
     for (const p of G.players) {
       if (p === this.ignore || p.noBody || p.isGK) continue;
       const dx = this.px - p.pos.x, dz = this.pz - p.pos.z;
       if (dx * dx + dz * dz > 0.5) continue;
       const sc = p.info.height / 1.8;
+      const ja = p.action && (p.action.type === 'jump' || p.action.type === 'header') ? p.action : null;
+      const jy = ja ? Math.sin(Math.PI * clamp(ja.t / ja.dur, 0, 1)) * 0.42 * (ja.jump || 1) : 0; // la barrera salta
       // velocidad relativa al jugador
       this.vx -= p.vel.x; this.vz -= p.vel.z;
-      const v = capsuleHit(this, p.pos.x, 0.72 * sc, p.pos.z, p.pos.x, 1.55 * sc, p.pos.z, 0.23 * p.info.build, BP.eBody);
+      const v = capsuleHit(this, p.pos.x, 0.72 * sc + jy, p.pos.z, p.pos.x, 1.55 * sc + jy, p.pos.z, 0.23 * p.info.build, BP.eBody);
       this.vx += p.vel.x; this.vz += p.vel.z;
       if (v > 0.5) {
         this.vx *= 0.8; this.vz *= 0.8;
-        G.lastTouch = p; this.trajDirty = true; G.kickSeq++;
+        touchBy(p); this.trajDirty = true; G.kickSeq++;
         if (v > 4) AU.touch();
         if (G.passInfo && G.passInfo.from.team !== p.team) G.passInfo = null;
       }

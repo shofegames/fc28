@@ -20,6 +20,8 @@ function keeperAI(p, h) {
   p.sprint = false; p.wantFace = null;
   if (st === 'goal' || st === 'intro' || st === 'halftime' || st === 'fulltime') { idleBrain(p); return; }
   if (G.match.restart && G.match.restart.kickoff) { p.want.x = p.want.z = 0; p.wantFace = ad > 0 ? Math.PI / 2 : -Math.PI / 2; return; }
+  const rr = G.match.restart;
+  if (rr && rr.type === 'penalty' && rr.team !== team && !rr.kicked) { moveTo(p, gx + ad * 0.15, 0, 'run'); p.wantFace = ad > 0 ? Math.PI / 2 : -Math.PI / 2; return; }
   K.saveCd = (K.saveCd || 0) - h;
   // con la pelota en las manos
   if (b.held === p) {
