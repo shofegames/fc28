@@ -23,6 +23,7 @@ Juego de fútbol 3D (11 contra 11) para el navegador, del usuario (GitHub `shofe
 ## Controles
 - Esquemas en `SCHEMES` (00_core): `flechas` (predeterminado: flechas mover, S pase, D disparo, W filtrado, A centro, E correr, Q cambiar), `wasd` (WASD + mouse: clic izq pase, clic der disparo, Espacio pase) y `jkl` (el original). Shift siempre corre. Defendiendo, pase = entrada y disparo = barrida. Cambiar una tecla deja el esquema en `custom`.
 - El jugador del usuario acelera 1.45x y gira mas rapido que la IA (31_player).
+- (v6, pedido: "imitá al DLS") Estilo juego de celular: pelota pegada al pie (`dribble` en 40_play, nunca se aleja más de ~1 m), PASE sale al apretar (no al soltar) y nunca va al vacío (busca al compañero más lógico, prefiriendo al libre), pases rasantes más rápidos. Defendiendo: PASE = cambiar jugador, FILTRADO = presionar (mantenido va solo a quitar), TIRO = barrida. Filtrado desde la banda en el último tercio = centro. En el celular solo 3 botones (PASE, FILTRADO, TIRO) y se corre con el joystick a fondo. Se imita cómo se juega, no la imagen del DLS.
 
 ## Celular
 - `05_touch.js`: joystick dinámico (mitad izquierda) y botones (PASE, TIRO, FILTRADO, CENTRO, CORRER, CAMBIAR) que generan teclas virtuales `T_<accion>` en `Input`. Joystick a fondo = correr. Defendiendo los botones dicen ENTRADA/BARRIDA. Se activa solo en pantallas táctiles (Configuración → Controles táctiles: Auto/Sí/No).

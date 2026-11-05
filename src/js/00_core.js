@@ -46,8 +46,8 @@ const SCHEMES = {
     shoot: 'KeyL', lob: 'KeyI', switch: 'KeyQ', tackle: 'KeyE', action: 'Space' }, alt: {} },
 };
 const DEFAULT_KEYS = SCHEMES.flechas.keys;
-const KEY_NAMES = { up: 'Avanzar', down: 'Retroceder', left: 'Izquierda', right: 'Derecha', sprint: 'Correr', pass: 'Pase corto (defendiendo: entrada)',
-  through: 'Pase filtrado', shoot: 'Disparar (defendiendo: barrida)', lob: 'Centro / pase largo', switch: 'Cambiar de jugador', tackle: 'Entrada', action: 'Barrida / pique' };
+const KEY_NAMES = { up: 'Avanzar', down: 'Retroceder', left: 'Izquierda', right: 'Derecha', sprint: 'Correr', pass: 'Pase (defendiendo: cambiar jugador)',
+  through: 'Filtrado / centro (defendiendo: presionar)', shoot: 'Disparar (defendiendo: barrida)', lob: 'Centro / pase largo', switch: 'Cambiar de jugador', tackle: 'Entrada', action: 'Barrida / pique' };
 
 const CFG = Object.assign({ quality: null, showFps: false, volume: 0.8, cam: 0, touch: 'auto' }, store.get('fc28_cfg', {}));
 if (!CFG.scheme || !SCHEMES[CFG.scheme] && CFG.scheme !== 'custom') CFG.scheme = 'flechas';

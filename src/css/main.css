@@ -212,16 +212,16 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 #tStick{position:absolute;width:124px;height:124px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.08),rgba(255,255,255,.16));border:2px solid rgba(255,255,255,.28);pointer-events:none;opacity:.55;transition:opacity .15s}
 #tStick.act{opacity:1}
 #tKnob{position:absolute;left:50%;top:50%;width:58px;height:58px;margin:-29px 0 0 -29px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#fff,#cfd6e2);box-shadow:0 4px 14px rgba(0,0,0,.45)}
-.tbtns{position:absolute;right:calc(14px + env(safe-area-inset-right,0px));bottom:14px;width:300px;height:236px;pointer-events:none}
+.tbtns{position:absolute;right:calc(14px + env(safe-area-inset-right,0px));bottom:14px;width:230px;height:200px;pointer-events:none}
 .tb{position:absolute;pointer-events:auto;touch-action:none;border-radius:50%;border:2px solid rgba(255,255,255,.35);background:rgba(10,13,19,.55);color:#fff;display:flex;align-items:center;justify-content:center;width:66px;height:66px;padding:0;-webkit-tap-highlight-color:transparent;backdrop-filter:blur(4px);transition:transform .06s,background .06s}
 .tb b{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:13px;letter-spacing:.04em;pointer-events:none}
 .tb.big{width:84px;height:84px}
 .tb.big b{font-size:16px}
 .tb.sm{width:58px;height:58px}
 .tb.on{transform:scale(.92);background:rgba(184,255,60,.55);border-color:var(--acc)}
-#tbShoot{right:0;bottom:0;background:rgba(255,77,94,.42);border-color:rgba(255,120,130,.7)}
-#tbPass{right:96px;bottom:0;background:rgba(184,255,60,.32);border-color:rgba(184,255,60,.7)}
-#tbThrough{right:96px;bottom:96px}
+#tbShoot{right:0;bottom:22px;width:96px;height:96px;background:rgba(255,77,94,.42);border-color:rgba(255,120,130,.7)}
+#tbPass{right:112px;bottom:0;width:90px;height:90px;background:rgba(184,255,60,.32);border-color:rgba(184,255,60,.7)}
+#tbThrough{right:104px;bottom:100px;width:76px;height:76px}
 #tbLob{right:8px;bottom:96px}
 #tbSprint{right:186px;bottom:6px}
 #tbSwitch{right:186px;bottom:96px}

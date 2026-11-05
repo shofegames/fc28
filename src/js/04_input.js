@@ -27,7 +27,7 @@ const Input = {
   },
   btn(name) {
     for (const k of this.codes(name)) if (this.down.has(k)) return true;
-    if (name === 'sprint' && Touch.on && Touch.mag > 0.93) return true; // joystick a fondo = correr
+    if (name === 'sprint' && Touch.on && Touch.mag > 0.86) return true; // joystick a fondo = correr
     return !!(this.pad && this.pad[name]);
   },
   hit(name) {

@@ -77,27 +77,30 @@ function receive(p) {
 // todo toque pasa por aca: sirve para el fuera de juego y los tiros libres indirectos
 function touchBy(p) { if (G.match && G.match.state === 'play') G.match.involve(p); G.lastTouch = p; }
 
-// conduccion: la pelota va adelante del pie con toques; corriendo se la empuja mas lejos
+// conduccion estilo juego de celular: la pelota va pegada al pie, un poco mas adelante cuanto mas rapido corre,
+// y en los giros acompaña al jugador (no sigue de largo). Nunca se escapa sola.
 function dribble(o, h) {
   const b = G.ball;
   if (o.action && o.action.type === 'kick' && o.action.fired) return;
   const f = o.fwd(), sp = Math.hypot(o.vel.x, o.vel.z);
-  if (b.py > BALL_R + 0.2) b.vy = Math.min(b.vy, 0);
-  const lead = 0.4 + sp * 0.075;
-  const tx = o.pos.x + f.x * lead, tz = o.pos.z + f.z * lead;
-  o.touchCd -= h;
-  if (o.sprint && sp > 5.4 && !o.action) {
-    const ahead = (b.px - o.pos.x) * f.x + (b.pz - o.pos.z) * f.z;
-    if ((ahead < lead * 0.7 || Math.hypot(b.vx, b.vz) < sp * 0.8) && o.touchCd <= 0) {
-      const k = 1.16 + (1 - o.a.dri / 100) * 0.3;
-      b.vx = o.vel.x * k + (tx - b.px) * 2; b.vz = o.vel.z * k + (tz - b.pz) * 2;
-      o.touchCd = 0.3; b.trajDirty = true;
-    }
-  } else {
-    const dvx = o.vel.x + (tx - b.px) * 8, dvz = o.vel.z + (tz - b.pz) * 8;
-    const k = clamp(h * (10 + o.a.dri / 100 * 8), 0, 1);
-    b.vx += (dvx - b.vx) * k; b.vz += (dvz - b.vz) * k;
-  }
+  if (b.py > BALL_R + 0.15) b.vy = Math.min(b.vy, -1);
+  // direccion: mezcla de hacia donde mira y hacia donde corre (asi en un giro la pelota ya va para el lado nuevo)
+  let dx = f.x, dz = f.z;
+  if (sp > 0.6) { dx = f.x * 0.4 + o.vel.x / sp * 0.6; dz = f.z * 0.4 + o.vel.z / sp * 0.6; const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l; }
+  // un toquecito cada paso: la pelota "late" un poco adelante al correr (se ve como que la va tocando)
+  o.dribT = (o.dribT || 0) + h * (1.6 + sp * 0.35);
+  const pulse = sp > 2 ? Math.max(0, Math.sin(o.dribT * TAU)) * Math.min(0.22, sp * 0.03) : 0;
+  const lead = 0.36 + Math.min(sp, 8.5) * 0.045 + pulse;
+  const tx = o.pos.x + dx * lead + o.vel.x * h, tz = o.pos.z + dz * lead + o.vel.z * h;
+  const ctrl = 0.8 + o.a.dri / 100 * 0.45;
+  const ex = tx - b.px, ez = tz - b.pz, err = Math.hypot(ex, ez);
+  const gain = err > 0.9 ? 22 : 12; // si se alejo, la trae enseguida
+  const dvx = o.vel.x + ex * gain, dvz = o.vel.z + ez * gain;
+  const k = clamp(h * 18 * ctrl, 0, 1);
+  b.vx += (dvx - b.vx) * k; b.vz += (dvz - b.vz) * k;
+  // tope: nunca mas rapido que el jugador + un poco (si no, se iria sola)
+  const bs = Math.hypot(b.vx, b.vz), cap = sp + 2.5;
+  if (bs > cap) { b.vx *= cap / bs; b.vz *= cap / bs; }
 }
 
 // ---- acciones ----
@@ -145,7 +148,7 @@ function laneBlock(p, tx, tz) {
   for (const o of p.team.opp.players) { const d = segDist(p.pos.x, p.pos.z, tx, tz, o.pos.x, o.pos.z); if (d < 1.8) pen += (1.8 - d) / 1.8; }
   return pen;
 }
-function pickReceiver(p, dir, kind) {
+function pickReceiver(p, dir, kind, minCos) {
   let best = null, bs = -1e9;
   const lob = kind === 'lob' || kind === 'cross';
   for (const m of p.team.players) {
@@ -153,10 +156,11 @@ function pickReceiver(p, dir, kind) {
     const dx = m.pos.x - p.pos.x, dz = m.pos.z - p.pos.z, d = Math.hypot(dx, dz);
     if (d < 3) continue;
     const cos = (dx * dir.x + dz * dir.z) / d;
-    if (cos < 0.5) continue;
-    const ideal = lob ? 30 : kind === 'through' ? 20 : 13;
+    if (cos < (minCos != null ? minCos : 0.42)) continue;
+    const ideal = lob ? 30 : kind === 'through' ? 20 : 12;
     let s = cos * 2.2 - Math.abs(d - ideal) / (lob ? 30 : 22);
     if (!lob) s -= laneBlock(p, m.pos.x, m.pos.z) * 0.7;
+    if (p.team.human && !lob) s -= passRisk(p, m.pos.x + m.vel.x * 0.4, m.pos.z + m.vel.z * 0.4, false, m) * 1.2;
     if (m.isGK) s -= 1.2;
     if (s > bs) { bs = s; best = m; }
   }
@@ -169,6 +173,8 @@ function computePass(p, kind, o) {
   const throwIn = kind === 'throw';
   let rec = o.receiver || null;
   if (!rec && !o.target && kind !== 'clear') rec = pickReceiver(p, dir, throwIn ? 'pass' : kind);
+  // pase corto: nunca al vacio. Si no hay nadie para ese lado, busca al compañero mas logico (un poco mas abierto, o el mas cercano)
+  if (!rec && !o.target && (kind === 'pass' || throwIn)) rec = pickReceiver(p, dir, 'pass', -0.1) || pickReceiver(p, { x: -dir.x, z: -dir.z }, 'pass', -1);
   const sx = b.px, sz = b.pz;
   let tx, tz;
   if (o.target) { tx = o.target.x; tz = o.target.z; }
@@ -195,15 +201,15 @@ function computePass(p, kind, o) {
   const pr = pressureOn(p), skill = p.a.pas / 100, f = p.fwd();
   const facing = ((tx - sx) * f.x + (tz - sz) * f.z) / D;
   const dd = teamDiff(team);
-  let err = (0.012 + (1 - skill) * 0.07) * (1 + pr * 0.9) * (facing < 0 ? 1.7 : facing < 0.5 ? 1.25 : 1) * (lob ? 1.2 : 1) * (team.human ? 1 : dd.passErr) * (1 + D / 80);
+  let err = (0.012 + (1 - skill) * 0.07) * (1 + pr * 0.9) * (facing < 0 ? 1.7 : facing < 0.5 ? 1.25 : 1) * (lob ? 1.2 : 1) * (team.human ? 0.7 : dd.passErr) * (1 + D / 80);
   if (G.mode === 'menu') err *= 1.1;
   const ang = Math.atan2(tz - sz, tx - sx) + randn() * err;
   const pe = 1 + randn() * err * 0.8;
   let r;
   if (!lob && !throwIn) {
-    const vArr = kind === 'through' ? 3 : clamp(3.2 + D * 0.1, 3.2, 8);
+    const vArr = kind === 'through' ? 4 : clamp(7 + D * 0.15, 7, 12); // pases tensos, que llegan rapido
     let v0 = vArr + BP.rollK * D; v0 += BP.rollC * D / ((v0 + vArr) / 2);
-    v0 = Math.min(v0 * pe, 31);
+    v0 = Math.min(v0 * pe, 32);
     r = { vx: Math.cos(ang) * v0, vy: 0, vz: Math.sin(ang) * v0, w: null };
   } else {
     const T = throwIn ? 0.55 + D * 0.035 : kind === 'clear' ? 1.7 + D * 0.015 : kind === 'cross' ? 1.05 + D * 0.03 : 0.95 + D * 0.034;

@@ -165,7 +165,7 @@ const UI = {
   },
   help(v) {
     const alt = altKeys();
-    if (v && Touch.on) $('helpGrid').innerHTML = [['Moverse', 'Joystick (izquierda)'], ['Correr', 'CORRER o joystick a fondo'], ['Pase corto', 'PASE'], ['Disparo', 'TIRO (mantené para más fuerza)'], ['Pase filtrado', 'FILTRADO'], ['Centro / pase largo', 'CENTRO'], ['Cambiar de jugador', 'CAMBIAR'], ['Entrada', 'ENTRADA (cuando defendés)'], ['Barrida', 'BARRIDA (cuando defendés)'], ['Pausa', '❚❚ arriba a la derecha']].map(r => `<div><span>${r[0]}</span><kbd>${r[1]}</kbd></div>`).join('');
+    if (v && Touch.on) $('helpGrid').innerHTML = [['Moverse', 'Joystick (izquierda)'], ['Correr', 'Joystick a fondo'], ['Pase', 'PASE (sale al toque)'], ['Filtrado', 'FILTRADO (mantené para más largo)'], ['Centro', 'FILTRADO desde la banda'], ['Disparo', 'TIRO (mantené para más fuerza)'], ['Cambiar de jugador', 'PASE cuando defendés'], ['Presionar / quitar', 'FILTRADO cuando defendés'], ['Barrida', 'TIRO cuando defendés'], ['Pausa', '❚❚ arriba a la derecha']].map(r => `<div><span>${r[0]}</span><kbd>${r[1]}</kbd></div>`).join('');
     else if (v) $('helpGrid').innerHTML = Object.keys(DEFAULT_KEYS).map(k => `<div><span>${KEY_NAMES[k]}</span><kbd>${keyLabel(CFG.keys[k])}${alt[k] ? ' / ' + keyLabel(alt[k]) : ''}${k === 'sprint' && CFG.keys[k] !== 'ShiftLeft' ? ' / SHIFT' : ''}</kbd></div>`).join('') +
       `<div><span>Pausa</span><kbd>ESC / P</kbd></div><div><span>Cambiar cámara</span><kbd>C</kbd></div><div><span>Esta ayuda</span><kbd>H</kbd></div><div><span>Joystick</span><kbd>A X B Y LB RT RB</kbd></div>`;
     $('help').classList.toggle('hidden', !v);

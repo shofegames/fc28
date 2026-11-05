@@ -72,30 +72,37 @@ class Human {
     }
     const mine = G.owner === p;
     const defending = G.owner && G.owner.team !== this.team && !G.ball.held;
-    // defendiendo: el boton de pase hace entrada y el de disparo barrida (como en los juegos de futbol)
+    // defendiendo (como en los juegos de futbol de celular): PASE cambia de jugador, FILTRADO presiona y quita, TIRO barrida
     if (defending) {
       this.charge = null; Hud.power(null);
-      if (Input.hit('pass') || Input.hit('tackle')) startTackle(p);
+      if (Input.hit('pass') && this.switchCd <= 0) { const c = this.bestCandidate(true); if (c) this.select(c); this.switchCd = 0.2; return; }
+      if (Input.btn('through')) {
+        const o = G.owner, d = Math.hypot(o.pos.x - p.pos.x, o.pos.z - p.pos.z);
+        if (mv.l < 0.1) moveTo(p, o.pos.x + o.vel.x * 0.25, o.pos.z + o.vel.z * 0.25, 'sprint', false); // va solo a buscarlo
+        else p.sprint = true;
+        p.wantFace = Math.atan2(o.pos.x - p.pos.x, o.pos.z - p.pos.z);
+        if (d < 1.7 && p.tackleCd <= 0 && !p.action) startTackle(p);
+      }
+      if (Input.hit('tackle')) startTackle(p);
       if (Input.hit('shoot') || Input.hit('action')) startSlide(p);
       return;
     }
-    // acciones con carga de potencia
-    for (const a of ['pass', 'through', 'shoot', 'lob']) {
+    // PASE sale al toque, sin cargar. Filtrado, centro y tiro se cargan manteniendo apretado
+    if (Input.hit('pass') && !this.charge) this.fire('pass', 0.5, mv);
+    for (const a of ['through', 'shoot', 'lob']) {
       if (Input.hit(a) && !this.charge) this.charge = { a, t0: G.time };
     }
     if (this.charge) {
       const pw = clamp((G.time - this.charge.t0) / 0.85, 0, 1);
       Hud.power(pw, ACTION_LABEL[this.charge.a]);
-      if (Input.up(this.charge.a) || pw >= 1 && this.charge.a !== 'pass') {
+      if (Input.up(this.charge.a) || pw >= 1) {
         this.fire(this.charge.a, Math.max(0.08, pw), mv);
         this.charge = null; Hud.power(null);
       }
     }
-    // defensa
-    if (!mine) {
-      if (Input.hit('tackle')) startTackle(p);
-      if (Input.hit('action')) startSlide(p);
-    } else if (Input.hit('action')) startKick(p, 'knock', {});
+    if (!mine && Input.hit('tackle')) startTackle(p);
+    if (mine && Input.hit('action')) startKick(p, 'knock', {});
+    else if (!mine && Input.hit('action')) startSlide(p);
   }
   fire(a, power, mv) {
     const p = this.p, b = G.ball;
@@ -103,10 +110,13 @@ class Human {
     const gx = this.team.oppGoalX, goalD = Math.hypot(gx - p.pos.x, p.pos.z);
     let kind = a === 'pass' ? 'pass' : a === 'through' ? 'through' : a === 'lob' ? 'lob' : 'shot';
     let opts = { dir, power };
+    const wide = Math.abs(p.pos.x - gx) < 32 && Math.abs(p.pos.z) > 15;
     if (a === 'lob') {
       if (goalD < 24 && Math.abs(p.pos.z) < 16) { kind = 'chip'; opts.chip = true; }
-      else if (Math.abs(p.pos.x - gx) < 30 && Math.abs(p.pos.z) > 15) kind = 'cross';
+      else if (wide) kind = 'cross';
     }
+    // filtrado desde la banda en el ultimo tercio = centro (asi alcanzan 3 botones)
+    if (a === 'through' && wide) kind = 'cross';
     const fp = p.foot(0.45), near = Math.hypot(b.px - fp.x, b.pz - fp.z) < 1.3 && b.py < 1.0;
     if (G.owner === p || near) { startKick(p, kind, opts); return; }
     // pelota en el aire cerca: cabezazo
@@ -116,20 +126,23 @@ class Human {
       if (p.action) { p.action.contact = clamp(hd / 7, 0.08, 0.25); p.action.jump = clamp((b.py - 1.6) / 0.8, 0.3, 1.2); }
       return;
     }
-    // si no tiene la pelota: queda guardado para pegarle de primera cuando llegue
-    p.buffer = { kind, opts, until: G.time + 1.0 };
-  }
-  takeRestart(r, mv, h) {
+    // de primera: solo si la pelota ya viene hacia el jugador y esta cerca (asi no sale sola despues)
+    const bs = Math.hypot(b.vx, b.vz), toMe = ((p.pos.x - b.px) * b.vx + (p.pos.z - b.pz) * b.vz) / (bs || 1);
+    if (hd < 7 && bs > 2 && toMe > 0) { p.buffer = { kind, opts, until: G.time + 0.6 }; return; }
+    // pelota suelta lejos: PASE cambia al jugador mas cercano
+    if (a === 'pass' && !G.owner) { const c = this.bestCandidate(true); if (c && c !== p) this.select(c); }
+  }  takeRestart(r, mv, h) {
     const p = this.p;
     p.want.x = p.want.z = 0;
     // apuntar con las flechas/WASD
     if (mv.l > 0.2) r.aim = Math.atan2(mv.x, mv.z);
     p.wantFace = r.aim != null ? r.aim : p.facing;
-    for (const a of ['pass', 'through', 'shoot', 'lob']) if (Input.hit(a) && !this.charge) this.charge = { a, t0: G.time };
+    if (Input.hit('pass') && !this.charge) this.charge = { a: 'pass', t0: G.time - 0.35, quick: true };
+    for (const a of ['through', 'shoot', 'lob']) if (Input.hit(a) && !this.charge) this.charge = { a, t0: G.time };
     if (this.charge) {
       const pw = clamp((G.time - this.charge.t0) / 0.85, 0, 1);
       Hud.power(pw, ACTION_LABEL[this.charge.a]);
-      if (Input.up(this.charge.a) || pw >= 1 && this.charge.a !== 'pass') {
+      if (this.charge.quick || Input.up(this.charge.a) || pw >= 1) {
         const a = this.charge.a; this.charge = null; Hud.power(null);
         const f = p.fwd(); const dir = { x: f.x, z: f.z };
         if (r.type === 'throw') { if (a !== 'shoot') startKick(p, 'throw', { dir, power: a === 'lob' ? Math.max(0.6, pw) : pw }); }

@@ -226,16 +226,16 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 #tStick{position:absolute;width:124px;height:124px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.08),rgba(255,255,255,.16));border:2px solid rgba(255,255,255,.28);pointer-events:none;opacity:.55;transition:opacity .15s}
 #tStick.act{opacity:1}
 #tKnob{position:absolute;left:50%;top:50%;width:58px;height:58px;margin:-29px 0 0 -29px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#fff,#cfd6e2);box-shadow:0 4px 14px rgba(0,0,0,.45)}
-.tbtns{position:absolute;right:calc(14px + env(safe-area-inset-right,0px));bottom:14px;width:300px;height:236px;pointer-events:none}
+.tbtns{position:absolute;right:calc(14px + env(safe-area-inset-right,0px));bottom:14px;width:230px;height:200px;pointer-events:none}
 .tb{position:absolute;pointer-events:auto;touch-action:none;border-radius:50%;border:2px solid rgba(255,255,255,.35);background:rgba(10,13,19,.55);color:#fff;display:flex;align-items:center;justify-content:center;width:66px;height:66px;padding:0;-webkit-tap-highlight-color:transparent;backdrop-filter:blur(4px);transition:transform .06s,background .06s}
 .tb b{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:13px;letter-spacing:.04em;pointer-events:none}
 .tb.big{width:84px;height:84px}
 .tb.big b{font-size:16px}
 .tb.sm{width:58px;height:58px}
 .tb.on{transform:scale(.92);background:rgba(184,255,60,.55);border-color:var(--acc)}
-#tbShoot{right:0;bottom:0;background:rgba(255,77,94,.42);border-color:rgba(255,120,130,.7)}
-#tbPass{right:96px;bottom:0;background:rgba(184,255,60,.32);border-color:rgba(184,255,60,.7)}
-#tbThrough{right:96px;bottom:96px}
+#tbShoot{right:0;bottom:22px;width:96px;height:96px;background:rgba(255,77,94,.42);border-color:rgba(255,120,130,.7)}
+#tbPass{right:112px;bottom:0;width:90px;height:90px;background:rgba(184,255,60,.32);border-color:rgba(184,255,60,.7)}
+#tbThrough{right:104px;bottom:100px;width:76px;height:76px}
 #tbLob{right:8px;bottom:96px}
 #tbSprint{right:186px;bottom:6px}
 #tbSwitch{right:186px;bottom:96px}
@@ -326,7 +326,7 @@ body.touchmode #power{bottom:auto;top:62px}
       <button class="hbtn" id="bTour" disabled><b>TORNEOS <em class="soon">PRONTO</em></b><i>Copas y ligas con los clubes</i></button>
       <button class="hbtn" id="bCfg"><b>CONFIGURACIÓN</b><i>Gráficos, sonido y controles</i></button>
     </nav>
-    <div class="hfoot">© 2026 shofegames · FC 28 v5</div>
+    <div class="hfoot">© 2026 shofegames · FC 28 v6</div>
   </div>
   <div class="hcard" id="hcard"></div>
 </section>
@@ -385,9 +385,6 @@ body.touchmode #power{bottom:auto;top:62px}
     <button class="tb big" data-a="shoot" id="tbShoot"><b>TIRO</b></button>
     <button class="tb big" data-a="pass" id="tbPass"><b>PASE</b></button>
     <button class="tb" data-a="through" id="tbThrough"><b>FILTRADO</b></button>
-    <button class="tb" data-a="lob" id="tbLob"><b>CENTRO</b></button>
-    <button class="tb" data-a="sprint" id="tbSprint"><b>CORRER</b></button>
-    <button class="tb sm" data-a="switch" id="tbSwitch"><b>CAMBIAR</b></button>
   </div>
   <button id="tPause" aria-label="Pausa">❚❚</button>
 </div>
@@ -411,7 +408,7 @@ body.touchmode #power{bottom:auto;top:62px}
   <div class="obox wide">
     <h2>CONTROLES</h2>
     <div class="hgrid" id="helpGrid"></div>
-    <p class="cnote">Mantené apretado pase, filtrado, centro o disparo para cargar la potencia. Un disparo suave sale colocado y con efecto; uno a fondo sale potente. Si apretás pase o disparo antes de que te llegue la pelota, le pegás de primera. Defendiendo, el pase hace entrada y el disparo barrida. Hay otros esquemas de teclas (WASD + mouse, J K L I) en Configuración.</p>
+    <p class="cnote">Mantené apretado pase, filtrado, centro o disparo para cargar la potencia. Un disparo suave sale colocado y con efecto; uno a fondo sale potente. Si apretás pase o disparo antes de que te llegue la pelota, le pegás de primera. Defendiendo, el pase cambia de jugador, el filtrado presiona (mantenelo y va solo a quitarla) y el disparo hace barrida. El pase corto sale al toque; desde la banda, el filtrado tira el centro. Hay otros esquemas de teclas (WASD + mouse, J K L I) en Configuración.</p>
     <button class="obtn" id="hClose">ENTENDIDO</button>
   </div>
 </section>
@@ -495,8 +492,8 @@ const SCHEMES = {
     shoot: 'KeyL', lob: 'KeyI', switch: 'KeyQ', tackle: 'KeyE', action: 'Space' }, alt: {} },
 };
 const DEFAULT_KEYS = SCHEMES.flechas.keys;
-const KEY_NAMES = { up: 'Avanzar', down: 'Retroceder', left: 'Izquierda', right: 'Derecha', sprint: 'Correr', pass: 'Pase corto (defendiendo: entrada)',
-  through: 'Pase filtrado', shoot: 'Disparar (defendiendo: barrida)', lob: 'Centro / pase largo', switch: 'Cambiar de jugador', tackle: 'Entrada', action: 'Barrida / pique' };
+const KEY_NAMES = { up: 'Avanzar', down: 'Retroceder', left: 'Izquierda', right: 'Derecha', sprint: 'Correr', pass: 'Pase (defendiendo: cambiar jugador)',
+  through: 'Filtrado / centro (defendiendo: presionar)', shoot: 'Disparar (defendiendo: barrida)', lob: 'Centro / pase largo', switch: 'Cambiar de jugador', tackle: 'Entrada', action: 'Barrida / pique' };
 
 const CFG = Object.assign({ quality: null, showFps: false, volume: 0.8, cam: 0, touch: 'auto' }, store.get('fc28_cfg', {}));
 if (!CFG.scheme || !SCHEMES[CFG.scheme] && CFG.scheme !== 'custom') CFG.scheme = 'flechas';
@@ -876,7 +873,7 @@ const Input = {
   },
   btn(name) {
     for (const k of this.codes(name)) if (this.down.has(k)) return true;
-    if (name === 'sprint' && Touch.on && Touch.mag > 0.93) return true; // joystick a fondo = correr
+    if (name === 'sprint' && Touch.on && Touch.mag > 0.86) return true; // joystick a fondo = correr
     return !!(this.pad && this.pad[name]);
   },
   hit(name) {
@@ -981,7 +978,8 @@ const Touch = {
     const def = !!(G.owner && G.owner.team !== G.human.team && !G.ball.held);
     if (def === this.def) return;
     this.def = def;
-    $('tbPass').firstChild.textContent = def ? 'ENTRADA' : 'PASE';
+    $('tbPass').firstChild.textContent = def ? 'CAMBIAR' : 'PASE';
+    $('tbThrough').firstChild.textContent = def ? 'PRESIONAR' : 'FILTRADO';
     $('tbShoot').firstChild.textContent = def ? 'BARRIDA' : 'TIRO';
     $('touch').classList.toggle('defending', def);
   },
@@ -2240,27 +2238,30 @@ function receive(p) {
 // todo toque pasa por aca: sirve para el fuera de juego y los tiros libres indirectos
 function touchBy(p) { if (G.match && G.match.state === 'play') G.match.involve(p); G.lastTouch = p; }
 
-// conduccion: la pelota va adelante del pie con toques; corriendo se la empuja mas lejos
+// conduccion estilo juego de celular: la pelota va pegada al pie, un poco mas adelante cuanto mas rapido corre,
+// y en los giros acompaña al jugador (no sigue de largo). Nunca se escapa sola.
 function dribble(o, h) {
   const b = G.ball;
   if (o.action && o.action.type === 'kick' && o.action.fired) return;
   const f = o.fwd(), sp = Math.hypot(o.vel.x, o.vel.z);
-  if (b.py > BALL_R + 0.2) b.vy = Math.min(b.vy, 0);
-  const lead = 0.4 + sp * 0.075;
-  const tx = o.pos.x + f.x * lead, tz = o.pos.z + f.z * lead;
-  o.touchCd -= h;
-  if (o.sprint && sp > 5.4 && !o.action) {
-    const ahead = (b.px - o.pos.x) * f.x + (b.pz - o.pos.z) * f.z;
-    if ((ahead < lead * 0.7 || Math.hypot(b.vx, b.vz) < sp * 0.8) && o.touchCd <= 0) {
-      const k = 1.16 + (1 - o.a.dri / 100) * 0.3;
-      b.vx = o.vel.x * k + (tx - b.px) * 2; b.vz = o.vel.z * k + (tz - b.pz) * 2;
-      o.touchCd = 0.3; b.trajDirty = true;
-    }
-  } else {
-    const dvx = o.vel.x + (tx - b.px) * 8, dvz = o.vel.z + (tz - b.pz) * 8;
-    const k = clamp(h * (10 + o.a.dri / 100 * 8), 0, 1);
-    b.vx += (dvx - b.vx) * k; b.vz += (dvz - b.vz) * k;
-  }
+  if (b.py > BALL_R + 0.15) b.vy = Math.min(b.vy, -1);
+  // direccion: mezcla de hacia donde mira y hacia donde corre (asi en un giro la pelota ya va para el lado nuevo)
+  let dx = f.x, dz = f.z;
+  if (sp > 0.6) { dx = f.x * 0.4 + o.vel.x / sp * 0.6; dz = f.z * 0.4 + o.vel.z / sp * 0.6; const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l; }
+  // un toquecito cada paso: la pelota "late" un poco adelante al correr (se ve como que la va tocando)
+  o.dribT = (o.dribT || 0) + h * (1.6 + sp * 0.35);
+  const pulse = sp > 2 ? Math.max(0, Math.sin(o.dribT * TAU)) * Math.min(0.22, sp * 0.03) : 0;
+  const lead = 0.36 + Math.min(sp, 8.5) * 0.045 + pulse;
+  const tx = o.pos.x + dx * lead + o.vel.x * h, tz = o.pos.z + dz * lead + o.vel.z * h;
+  const ctrl = 0.8 + o.a.dri / 100 * 0.45;
+  const ex = tx - b.px, ez = tz - b.pz, err = Math.hypot(ex, ez);
+  const gain = err > 0.9 ? 22 : 12; // si se alejo, la trae enseguida
+  const dvx = o.vel.x + ex * gain, dvz = o.vel.z + ez * gain;
+  const k = clamp(h * 18 * ctrl, 0, 1);
+  b.vx += (dvx - b.vx) * k; b.vz += (dvz - b.vz) * k;
+  // tope: nunca mas rapido que el jugador + un poco (si no, se iria sola)
+  const bs = Math.hypot(b.vx, b.vz), cap = sp + 2.5;
+  if (bs > cap) { b.vx *= cap / bs; b.vz *= cap / bs; }
 }
 
 // ---- acciones ----
@@ -2308,7 +2309,7 @@ function laneBlock(p, tx, tz) {
   for (const o of p.team.opp.players) { const d = segDist(p.pos.x, p.pos.z, tx, tz, o.pos.x, o.pos.z); if (d < 1.8) pen += (1.8 - d) / 1.8; }
   return pen;
 }
-function pickReceiver(p, dir, kind) {
+function pickReceiver(p, dir, kind, minCos) {
   let best = null, bs = -1e9;
   const lob = kind === 'lob' || kind === 'cross';
   for (const m of p.team.players) {
@@ -2316,10 +2317,11 @@ function pickReceiver(p, dir, kind) {
     const dx = m.pos.x - p.pos.x, dz = m.pos.z - p.pos.z, d = Math.hypot(dx, dz);
     if (d < 3) continue;
     const cos = (dx * dir.x + dz * dir.z) / d;
-    if (cos < 0.5) continue;
-    const ideal = lob ? 30 : kind === 'through' ? 20 : 13;
+    if (cos < (minCos != null ? minCos : 0.42)) continue;
+    const ideal = lob ? 30 : kind === 'through' ? 20 : 12;
     let s = cos * 2.2 - Math.abs(d - ideal) / (lob ? 30 : 22);
     if (!lob) s -= laneBlock(p, m.pos.x, m.pos.z) * 0.7;
+    if (p.team.human && !lob) s -= passRisk(p, m.pos.x + m.vel.x * 0.4, m.pos.z + m.vel.z * 0.4, false, m) * 1.2;
     if (m.isGK) s -= 1.2;
     if (s > bs) { bs = s; best = m; }
   }
@@ -2332,6 +2334,8 @@ function computePass(p, kind, o) {
   const throwIn = kind === 'throw';
   let rec = o.receiver || null;
   if (!rec && !o.target && kind !== 'clear') rec = pickReceiver(p, dir, throwIn ? 'pass' : kind);
+  // pase corto: nunca al vacio. Si no hay nadie para ese lado, busca al compañero mas logico (un poco mas abierto, o el mas cercano)
+  if (!rec && !o.target && (kind === 'pass' || throwIn)) rec = pickReceiver(p, dir, 'pass', -0.1) || pickReceiver(p, { x: -dir.x, z: -dir.z }, 'pass', -1);
   const sx = b.px, sz = b.pz;
   let tx, tz;
   if (o.target) { tx = o.target.x; tz = o.target.z; }
@@ -2358,15 +2362,15 @@ function computePass(p, kind, o) {
   const pr = pressureOn(p), skill = p.a.pas / 100, f = p.fwd();
   const facing = ((tx - sx) * f.x + (tz - sz) * f.z) / D;
   const dd = teamDiff(team);
-  let err = (0.012 + (1 - skill) * 0.07) * (1 + pr * 0.9) * (facing < 0 ? 1.7 : facing < 0.5 ? 1.25 : 1) * (lob ? 1.2 : 1) * (team.human ? 1 : dd.passErr) * (1 + D / 80);
+  let err = (0.012 + (1 - skill) * 0.07) * (1 + pr * 0.9) * (facing < 0 ? 1.7 : facing < 0.5 ? 1.25 : 1) * (lob ? 1.2 : 1) * (team.human ? 0.7 : dd.passErr) * (1 + D / 80);
   if (G.mode === 'menu') err *= 1.1;
   const ang = Math.atan2(tz - sz, tx - sx) + randn() * err;
   const pe = 1 + randn() * err * 0.8;
   let r;
   if (!lob && !throwIn) {
-    const vArr = kind === 'through' ? 3 : clamp(3.2 + D * 0.1, 3.2, 8);
+    const vArr = kind === 'through' ? 4 : clamp(7 + D * 0.15, 7, 12); // pases tensos, que llegan rapido
     let v0 = vArr + BP.rollK * D; v0 += BP.rollC * D / ((v0 + vArr) / 2);
-    v0 = Math.min(v0 * pe, 31);
+    v0 = Math.min(v0 * pe, 32);
     r = { vx: Math.cos(ang) * v0, vy: 0, vz: Math.sin(ang) * v0, w: null };
   } else {
     const T = throwIn ? 0.55 + D * 0.035 : kind === 'clear' ? 1.7 + D * 0.015 : kind === 'cross' ? 1.05 + D * 0.03 : 0.95 + D * 0.034;
@@ -3044,30 +3048,37 @@ class Human {
     }
     const mine = G.owner === p;
     const defending = G.owner && G.owner.team !== this.team && !G.ball.held;
-    // defendiendo: el boton de pase hace entrada y el de disparo barrida (como en los juegos de futbol)
+    // defendiendo (como en los juegos de futbol de celular): PASE cambia de jugador, FILTRADO presiona y quita, TIRO barrida
     if (defending) {
       this.charge = null; Hud.power(null);
-      if (Input.hit('pass') || Input.hit('tackle')) startTackle(p);
+      if (Input.hit('pass') && this.switchCd <= 0) { const c = this.bestCandidate(true); if (c) this.select(c); this.switchCd = 0.2; return; }
+      if (Input.btn('through')) {
+        const o = G.owner, d = Math.hypot(o.pos.x - p.pos.x, o.pos.z - p.pos.z);
+        if (mv.l < 0.1) moveTo(p, o.pos.x + o.vel.x * 0.25, o.pos.z + o.vel.z * 0.25, 'sprint', false); // va solo a buscarlo
+        else p.sprint = true;
+        p.wantFace = Math.atan2(o.pos.x - p.pos.x, o.pos.z - p.pos.z);
+        if (d < 1.7 && p.tackleCd <= 0 && !p.action) startTackle(p);
+      }
+      if (Input.hit('tackle')) startTackle(p);
       if (Input.hit('shoot') || Input.hit('action')) startSlide(p);
       return;
     }
-    // acciones con carga de potencia
-    for (const a of ['pass', 'through', 'shoot', 'lob']) {
+    // PASE sale al toque, sin cargar. Filtrado, centro y tiro se cargan manteniendo apretado
+    if (Input.hit('pass') && !this.charge) this.fire('pass', 0.5, mv);
+    for (const a of ['through', 'shoot', 'lob']) {
       if (Input.hit(a) && !this.charge) this.charge = { a, t0: G.time };
     }
     if (this.charge) {
       const pw = clamp((G.time - this.charge.t0) / 0.85, 0, 1);
       Hud.power(pw, ACTION_LABEL[this.charge.a]);
-      if (Input.up(this.charge.a) || pw >= 1 && this.charge.a !== 'pass') {
+      if (Input.up(this.charge.a) || pw >= 1) {
         this.fire(this.charge.a, Math.max(0.08, pw), mv);
         this.charge = null; Hud.power(null);
       }
     }
-    // defensa
-    if (!mine) {
-      if (Input.hit('tackle')) startTackle(p);
-      if (Input.hit('action')) startSlide(p);
-    } else if (Input.hit('action')) startKick(p, 'knock', {});
+    if (!mine && Input.hit('tackle')) startTackle(p);
+    if (mine && Input.hit('action')) startKick(p, 'knock', {});
+    else if (!mine && Input.hit('action')) startSlide(p);
   }
   fire(a, power, mv) {
     const p = this.p, b = G.ball;
@@ -3075,10 +3086,13 @@ class Human {
     const gx = this.team.oppGoalX, goalD = Math.hypot(gx - p.pos.x, p.pos.z);
     let kind = a === 'pass' ? 'pass' : a === 'through' ? 'through' : a === 'lob' ? 'lob' : 'shot';
     let opts = { dir, power };
+    const wide = Math.abs(p.pos.x - gx) < 32 && Math.abs(p.pos.z) > 15;
     if (a === 'lob') {
       if (goalD < 24 && Math.abs(p.pos.z) < 16) { kind = 'chip'; opts.chip = true; }
-      else if (Math.abs(p.pos.x - gx) < 30 && Math.abs(p.pos.z) > 15) kind = 'cross';
+      else if (wide) kind = 'cross';
     }
+    // filtrado desde la banda en el ultimo tercio = centro (asi alcanzan 3 botones)
+    if (a === 'through' && wide) kind = 'cross';
     const fp = p.foot(0.45), near = Math.hypot(b.px - fp.x, b.pz - fp.z) < 1.3 && b.py < 1.0;
     if (G.owner === p || near) { startKick(p, kind, opts); return; }
     // pelota en el aire cerca: cabezazo
@@ -3088,20 +3102,23 @@ class Human {
       if (p.action) { p.action.contact = clamp(hd / 7, 0.08, 0.25); p.action.jump = clamp((b.py - 1.6) / 0.8, 0.3, 1.2); }
       return;
     }
-    // si no tiene la pelota: queda guardado para pegarle de primera cuando llegue
-    p.buffer = { kind, opts, until: G.time + 1.0 };
-  }
-  takeRestart(r, mv, h) {
+    // de primera: solo si la pelota ya viene hacia el jugador y esta cerca (asi no sale sola despues)
+    const bs = Math.hypot(b.vx, b.vz), toMe = ((p.pos.x - b.px) * b.vx + (p.pos.z - b.pz) * b.vz) / (bs || 1);
+    if (hd < 7 && bs > 2 && toMe > 0) { p.buffer = { kind, opts, until: G.time + 0.6 }; return; }
+    // pelota suelta lejos: PASE cambia al jugador mas cercano
+    if (a === 'pass' && !G.owner) { const c = this.bestCandidate(true); if (c && c !== p) this.select(c); }
+  }  takeRestart(r, mv, h) {
     const p = this.p;
     p.want.x = p.want.z = 0;
     // apuntar con las flechas/WASD
     if (mv.l > 0.2) r.aim = Math.atan2(mv.x, mv.z);
     p.wantFace = r.aim != null ? r.aim : p.facing;
-    for (const a of ['pass', 'through', 'shoot', 'lob']) if (Input.hit(a) && !this.charge) this.charge = { a, t0: G.time };
+    if (Input.hit('pass') && !this.charge) this.charge = { a: 'pass', t0: G.time - 0.35, quick: true };
+    for (const a of ['through', 'shoot', 'lob']) if (Input.hit(a) && !this.charge) this.charge = { a, t0: G.time };
     if (this.charge) {
       const pw = clamp((G.time - this.charge.t0) / 0.85, 0, 1);
       Hud.power(pw, ACTION_LABEL[this.charge.a]);
-      if (Input.up(this.charge.a) || pw >= 1 && this.charge.a !== 'pass') {
+      if (this.charge.quick || Input.up(this.charge.a) || pw >= 1) {
         const a = this.charge.a; this.charge = null; Hud.power(null);
         const f = p.fwd(); const dir = { x: f.x, z: f.z };
         if (r.type === 'throw') { if (a !== 'shoot') startKick(p, 'throw', { dir, power: a === 'lob' ? Math.max(0.6, pw) : pw }); }
@@ -4082,7 +4099,7 @@ const UI = {
   },
   help(v) {
     const alt = altKeys();
-    if (v && Touch.on) $('helpGrid').innerHTML = [['Moverse', 'Joystick (izquierda)'], ['Correr', 'CORRER o joystick a fondo'], ['Pase corto', 'PASE'], ['Disparo', 'TIRO (mantené para más fuerza)'], ['Pase filtrado', 'FILTRADO'], ['Centro / pase largo', 'CENTRO'], ['Cambiar de jugador', 'CAMBIAR'], ['Entrada', 'ENTRADA (cuando defendés)'], ['Barrida', 'BARRIDA (cuando defendés)'], ['Pausa', '❚❚ arriba a la derecha']].map(r => `<div><span>${r[0]}</span><kbd>${r[1]}</kbd></div>`).join('');
+    if (v && Touch.on) $('helpGrid').innerHTML = [['Moverse', 'Joystick (izquierda)'], ['Correr', 'Joystick a fondo'], ['Pase', 'PASE (sale al toque)'], ['Filtrado', 'FILTRADO (mantené para más largo)'], ['Centro', 'FILTRADO desde la banda'], ['Disparo', 'TIRO (mantené para más fuerza)'], ['Cambiar de jugador', 'PASE cuando defendés'], ['Presionar / quitar', 'FILTRADO cuando defendés'], ['Barrida', 'TIRO cuando defendés'], ['Pausa', '❚❚ arriba a la derecha']].map(r => `<div><span>${r[0]}</span><kbd>${r[1]}</kbd></div>`).join('');
     else if (v) $('helpGrid').innerHTML = Object.keys(DEFAULT_KEYS).map(k => `<div><span>${KEY_NAMES[k]}</span><kbd>${keyLabel(CFG.keys[k])}${alt[k] ? ' / ' + keyLabel(alt[k]) : ''}${k === 'sprint' && CFG.keys[k] !== 'ShiftLeft' ? ' / SHIFT' : ''}</kbd></div>`).join('') +
       `<div><span>Pausa</span><kbd>ESC / P</kbd></div><div><span>Cambiar cámara</span><kbd>C</kbd></div><div><span>Esta ayuda</span><kbd>H</kbd></div><div><span>Joystick</span><kbd>A X B Y LB RT RB</kbd></div>`;
     $('help').classList.toggle('hidden', !v);

@@ -58,7 +58,8 @@ const Touch = {
     const def = !!(G.owner && G.owner.team !== G.human.team && !G.ball.held);
     if (def === this.def) return;
     this.def = def;
-    $('tbPass').firstChild.textContent = def ? 'ENTRADA' : 'PASE';
+    $('tbPass').firstChild.textContent = def ? 'CAMBIAR' : 'PASE';
+    $('tbThrough').firstChild.textContent = def ? 'PRESIONAR' : 'FILTRADO';
     $('tbShoot').firstChild.textContent = def ? 'BARRIDA' : 'TIRO';
     $('touch').classList.toggle('defending', def);
   },
