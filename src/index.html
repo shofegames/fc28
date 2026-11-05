@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<!-- seguridad: solo se cargan scripts de cdnjs, estilos y fuentes de Google Fonts; nada mas puede entrar ni salir -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>FC 28</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2307090d'/%3E%3Ctext x='32' y='43' font-family='Arial Black,Arial' font-weight='900' font-style='italic' font-size='30' fill='%23b8ff3c' text-anchor='middle'%3E28%3C/text%3E%3C/svg%3E">
+<meta name="theme-color" content="#07090d">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,500;0,600;0,700;0,800;0,900;1,700;1,800;1,900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>/*@CSS*/</style>
+</head>
+<body>
+<canvas id="c" tabindex="0"></canvas>
+<div id="vignette"></div>
+
+<!-- ============ MENU PRINCIPAL ============ -->
+<section id="home" class="screen">
+  <div class="hpanel">
+    <div class="logo"><span class="lfc">FC</span><span class="l28">28</span></div>
+    <div class="lsub">FÚTBOL 3D · SHOFE GAMES</div>
+    <nav class="hnav">
+      <button class="hbtn big" id="bPlay"><b>JUGAR PARTIDO</b><i>Partido de 11 contra 11 contra la computadora</i></button>
+      <button class="hbtn" id="bTrain" disabled><b>ENTRENAMIENTO <em class="soon">PRONTO</em></b><i>Pases, disparos, penales y tiros libres</i></button>
+      <button class="hbtn" id="bTour" disabled><b>TORNEOS <em class="soon">PRONTO</em></b><i>Copas y ligas con los clubes</i></button>
+      <button class="hbtn" id="bCfg"><b>CONFIGURACIÓN</b><i>Gráficos, sonido y controles</i></button>
+    </nav>
+    <div class="hfoot">© 2026 shofegames · FC 28 · Fase 1</div>
+  </div>
+  <div class="hcard" id="hcard"></div>
+</section>
+
+<!-- ============ SELECCION DE EQUIPOS Y PARTIDO ============ -->
+<section id="setup" class="screen hidden">
+  <div class="stitle"><button class="back" id="sBack">‹</button><h2>JUGAR PARTIDO</h2><span>Elegí los equipos y el partido</span></div>
+  <div class="spick">
+    <div class="tpick" id="pickH"></div>
+    <div class="vs">VS</div>
+    <div class="tpick" id="pickA"></div>
+  </div>
+  <div class="sopts" id="sopts"></div>
+  <div class="sgo"><button class="cta" id="bStart">COMENZAR PARTIDO</button></div>
+</section>
+
+<!-- ============ CONFIGURACION ============ -->
+<section id="cfg" class="screen hidden">
+  <div class="stitle"><button class="back" id="cBack">‹</button><h2>CONFIGURACIÓN</h2><span>Se guarda en este navegador</span></div>
+  <div class="cgrid">
+    <div class="cbox"><h3>Gráficos y sonido</h3><div id="cOpts"></div></div>
+    <div class="cbox"><h3>Controles</h3><div id="cKeys"></div><p class="cnote">Tocá una tecla para cambiarla. También anda con joystick (A pase, X filtrado, B disparo, Y centro, LB cambiar, RT correr, RB entrada).</p><button class="sbtn" id="cReset">Restaurar teclas</button></div>
+  </div>
+</section>
+
+<!-- ============ HUD DEL PARTIDO ============ -->
+<div id="hud" class="hidden">
+  <div id="sb">
+    <div class="sbt"><img id="sbCH" alt=""><span id="sbNH">LOC</span></div>
+    <div class="sbs"><span id="sbGH">0</span><i>-</i><span id="sbGA">0</span></div>
+    <div class="sbt"><span id="sbNA">VIS</span><img id="sbCA" alt=""></div>
+    <div class="sbc" id="sbClock">00:00</div>
+  </div>
+  <div id="sbInfo"></div>
+  <div id="pcard"><div class="pnum" id="pNum">9</div><div class="pinfo"><div class="pname" id="pName">JUGADOR</div><div class="pbar"><div id="pSta"></div></div></div></div>
+  <div id="power" class="hidden"><div id="powFill"></div><span id="powLbl">DISPARO</span></div>
+  <div id="msg" class="hidden"><div class="mbig" id="msgBig"></div><div class="msm" id="msgSm"></div></div>
+  <div id="hint">H: controles · ESC: pausa · C: cámara</div>
+</div>
+<div id="fps" class="hidden"></div>
+
+<!-- ============ PAUSA ============ -->
+<section id="pause" class="overlay hidden">
+  <div class="obox">
+    <h2>PAUSA</h2>
+    <div class="ostats" id="pStats"></div>
+    <button class="obtn" id="pCont">CONTINUAR</button>
+    <button class="obtn" id="pHelp">CONTROLES</button>
+    <button class="obtn" id="pCam">CÁMARA: TV</button>
+    <button class="obtn" id="pRestart">REINICIAR PARTIDO</button>
+    <button class="obtn dim" id="pExit">SALIR AL MENÚ</button>
+  </div>
+</section>
+
+<!-- ============ AYUDA ============ -->
+<section id="help" class="overlay hidden">
+  <div class="obox wide">
+    <h2>CONTROLES</h2>
+    <div class="hgrid" id="helpGrid"></div>
+    <p class="cnote">Mantené apretado pase, filtrado, centro o disparo para cargar la potencia. Un disparo suave sale colocado y con efecto; uno a fondo sale potente. Si apretás pase o disparo antes de que te llegue la pelota, le pegás de primera.</p>
+    <button class="obtn" id="hClose">ENTENDIDO</button>
+  </div>
+</section>
+
+<!-- ============ ENTRETIEMPO / FINAL ============ -->
+<section id="end" class="overlay hidden">
+  <div class="obox wide">
+    <div class="etitle" id="eTitle">FINAL DEL PARTIDO</div>
+    <div class="escore" id="eScore"></div>
+    <div class="estats" id="eStats"></div>
+    <div class="ebtns">
+      <button class="obtn" id="eNext">SEGUNDO TIEMPO</button>
+      <button class="obtn dim" id="eMenu">MENÚ</button>
+    </div>
+  </div>
+</section>
+
+<div id="fade"></div>
+<div id="loading"><div class="logo"><span class="lfc">FC</span><span class="l28">28</span></div><div class="lbar"><i></i></div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>/*@JS*/</script>
+</body>
+</html>
