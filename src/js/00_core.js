@@ -35,13 +35,24 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } }
 };
 
-const DEFAULT_KEYS = { up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD', sprint: 'ShiftLeft', pass: 'KeyJ', through: 'KeyK',
-  shoot: 'KeyL', lob: 'KeyI', switch: 'KeyQ', tackle: 'KeyE', action: 'Space' };
-const KEY_NAMES = { up: 'Avanzar', down: 'Retroceder', left: 'Izquierda', right: 'Derecha', sprint: 'Correr', pass: 'Pase corto',
-  through: 'Pase filtrado', shoot: 'Disparar', lob: 'Centro / pase largo', switch: 'Cambiar de jugador', tackle: 'Entrada', action: 'Barrida / acción' };
+// Esquemas de teclas. "flechas" es el clasico de los juegos de futbol en PC: flechas para moverse y todo lo demas
+// al lado, con la otra mano (S pase, D disparo, W filtrado, A centro). Defendiendo, el pase es entrada y el disparo barrida.
+const SCHEMES = {
+  flechas: { name: 'Flechas + A S D W', keys: { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', sprint: 'KeyE', pass: 'KeyS', through: 'KeyW',
+    shoot: 'KeyD', lob: 'KeyA', switch: 'KeyQ', tackle: 'KeyF', action: 'Space' }, alt: {} },
+  wasd: { name: 'WASD + mouse', keys: { up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD', sprint: 'ShiftLeft', pass: 'Space', through: 'KeyR',
+    shoot: 'KeyF', lob: 'KeyX', switch: 'KeyQ', tackle: 'KeyE', action: 'KeyV' }, alt: { pass: 'Mouse0', shoot: 'Mouse2', through: 'Mouse1' } },
+  jkl: { name: 'WASD + J K L I', keys: { up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD', sprint: 'ShiftLeft', pass: 'KeyJ', through: 'KeyK',
+    shoot: 'KeyL', lob: 'KeyI', switch: 'KeyQ', tackle: 'KeyE', action: 'Space' }, alt: {} },
+};
+const DEFAULT_KEYS = SCHEMES.flechas.keys;
+const KEY_NAMES = { up: 'Avanzar', down: 'Retroceder', left: 'Izquierda', right: 'Derecha', sprint: 'Correr', pass: 'Pase corto (defendiendo: entrada)',
+  through: 'Pase filtrado', shoot: 'Disparar (defendiendo: barrida)', lob: 'Centro / pase largo', switch: 'Cambiar de jugador', tackle: 'Entrada', action: 'Barrida / pique' };
 
 const CFG = Object.assign({ quality: null, showFps: false, volume: 0.8, cam: 0 }, store.get('fc28_cfg', {}));
-CFG.keys = Object.assign({}, DEFAULT_KEYS, CFG.keys || {});
+if (!CFG.scheme || !SCHEMES[CFG.scheme] && CFG.scheme !== 'custom') CFG.scheme = 'flechas';
+CFG.keys = CFG.scheme === 'custom' ? Object.assign({}, DEFAULT_KEYS, CFG.keys || {}) : Object.assign({}, SCHEMES[CFG.scheme].keys);
+const altKeys = () => CFG.scheme === 'custom' ? {} : SCHEMES[CFG.scheme].alt;
 function saveCfg() { store.set('fc28_cfg', CFG); }
 
 // Estado global del juego

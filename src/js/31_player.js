@@ -52,23 +52,31 @@ class Player {
       const dvx = tx - this.vel.x, dvz = tz - this.vel.z, dl = Math.hypot(dvx, dvz);
       // acelerar cuesta mas que frenar; girar a toda velocidad cuesta un poco mas
       const speeding = wl > sp0;
-      const maxA = (speeding ? 8.5 + this.a.pac / 100 * 5 : 17) * h;
+      // el jugador que maneja el usuario responde mas rapido (como en los juegos de futbol)
+      const hb = G.human && G.human.p === this ? 1.45 : 1;
+      const maxA = (speeding ? 8.5 + this.a.pac / 100 * 5 : 17) * hb * h;
       if (dl > maxA) { this.vel.x += dvx / dl * maxA; this.vel.z += dvz / dl * maxA; } else { this.vel.x = tx; this.vel.z = tz; }
       this.accel = speeding && dl > maxA ? 1 : 0;
     }
     this.pos.x += this.vel.x * h; this.pos.z += this.vel.z * h;
     // orientacion del cuerpo
-    const sp = Math.hypot(this.vel.x, this.vel.z);
+    const sp = Math.hypot(this.vel.x, this.vel.z), spPrev = this._sp || 0; this._sp = sp;
+    this.accelV = damp(this.accelV || 0, (sp - spPrev) / h, 8, h);
+    const moveDir = Math.atan2(this.vel.x, this.vel.z);
     let tf = this.facing;
-    if (this.wantFace != null && !(ac && (ac.type === 'slide' || ac.type === 'dive'))) tf = this.wantFace;
-    else if (sp > 0.5 && !(ac && ac.type === 'dive')) tf = Math.atan2(this.vel.x, this.vel.z);
-    const rate = (ac && ac.type === 'kick') ? 3 : sp < 2.5 ? 11 : 7.5;
+    const busy = ac && (ac.type === 'slide' || ac.type === 'dive');
+    if (this.wantFace != null && !busy && !(sp > 3.6 && Math.abs(angWrap(this.wantFace - moveDir)) > 1.6)) tf = this.wantFace; // no corre para atras mirando la pelota
+    else if (sp > 1.0 && !(ac && ac.type === 'dive')) tf = moveDir;
+    const human = G.human && G.human.p === this;
+    const rate = (ac && ac.type === 'kick') ? 3 : human ? (sp < 3 ? 16 : 10) : sp < 2.5 ? 10 : 7;
     const df = angWrap(tf - this.facing), st = clamp(df, -rate * h, rate * h);
-    this.facing = angWrap(this.facing + st); this.turnRate = st / h;
+    this.facing = angWrap(this.facing + st); this.turnRate = damp(this.turnRate, st / h, 10, h);
+    // la zancada es mas corta de costado y para atras
+    const vf = sp > 0.05 ? Math.abs(Math.cos(moveDir - this.facing)) : 1;
     // energia
     if (this.sprint && sp > 5) this.stamina = Math.max(0, this.stamina - h * 0.011 * (1.45 - this.a.phy / 100));
     else this.stamina = Math.min(1, this.stamina + h * (sp < 2 ? 0.006 : 0.002));
     // fase de la carrera: avanza con la distancia recorrida (los pies no patinan)
-    this.phase += sp * h / (1.0 + sp * 0.17) * TAU;
+    this.phase += sp * h / ((1.0 + sp * 0.17) * (0.55 + 0.45 * vf)) * TAU;
   }
 }

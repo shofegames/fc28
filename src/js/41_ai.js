@@ -25,11 +25,13 @@ function faceBall(p) { const b = G.ball; p.wantFace = Math.atan2(b.px - p.pos.x,
 function assignRoles() {
   const b = G.ball, o = G.owner;
   for (const t of G.teams) {
+    const prevC = t.chaser, prevP = t.presser, prevS = t.support;
     t.chaser = t.presser = t.cover = null; t.support = [];
     const field = t.players.filter(p => !p.isGK);
     if (!o) {
       let best = null, bt = 1e9;
-      for (const p of field) { const it = interceptFor(p, true); const tt = it.t + Math.hypot(it.x - p.pos.x, it.z - p.pos.z) * 0.02; if (tt < bt) { bt = tt; best = p; } }
+      // el que ya iba sigue yendo salvo que otro llegue claramente antes (evita que dos jugadores duden)
+      for (const p of field) { const it = interceptFor(p, true); const tt = it.t + Math.hypot(it.x - p.pos.x, it.z - p.pos.z) * 0.02 - (p === prevC ? 0.35 : 0); if (tt < bt) { bt = tt; best = p; } }
       t.chaser = best;
     } else if (o.team !== t) {
       const gx = t.ownGoalX;
@@ -37,12 +39,12 @@ function assignRoles() {
       for (const p of field) {
         const d = Math.hypot(p.pos.x - o.pos.x, p.pos.z - o.pos.z);
         const goalSide = (o.pos.x - p.pos.x) * Math.sign(-gx || 1) > 0 ? 0 : 4; // los que estan del lado del arco cuentan como mas cerca
-        const s = d + goalSide;
+        const s = d + goalSide - (p === prevP ? 2.5 : 0);
         if (s < bs) { ss = bs; second = best; bs = s; best = p; } else if (s < ss) { ss = s; second = p; }
       }
       t.presser = best; t.cover = ss < 22 ? second : null;
     } else {
-      const ds = field.filter(p => p !== o).map(p => ({ p, d: Math.hypot(p.pos.x - o.pos.x, p.pos.z - o.pos.z) + (p.slot <= 4 && t.form[p.slot].role === 'DF' ? 6 : 0) })).sort((a, b) => a.d - b.d);
+      const ds = field.filter(p => p !== o).map(p => ({ p, d: Math.hypot(p.pos.x - o.pos.x, p.pos.z - o.pos.z) + (t.form[p.slot].role === 'DF' ? 6 : 0) - (prevS.includes(p) ? 4 : 0) })).sort((a, b) => a.d - b.d);
       t.support = ds.slice(0, 2).map(e => e.p);
     }
   }
@@ -141,9 +143,15 @@ function brain(p, h) {
       moveTo(p, o.pos.x + dx / dl * 6, o.pos.z + dz / dl * 6); faceBall(p); return;
     }
   }
-  const t = formationTarget(p);
-  const d = moveTo(p, t.x, t.z);
-  if (d < 3) faceBall(p);
+  const t = formationTarget(p), B = p.brain;
+  if (B.tx == null || Math.hypot(B.tx - t.x, B.tz - t.z) > 12) { B.tx = t.x; B.tz = t.z; }
+  B.tx = damp(B.tx, t.x, 2.5, DT); B.tz = damp(B.tz, t.z, 2.5, DT);
+  // si ya esta cerca de su lugar, se queda (no da pasitos todo el tiempo)
+  const dd = Math.hypot(B.tx - p.pos.x, B.tz - p.pos.z);
+  if (B.hold && dd < 2.2) { p.want.x *= 0.85; p.want.z *= 0.85; p.sprint = false; faceBall(p); return; }
+  B.hold = dd < 0.8;
+  const d = moveTo(p, B.tx, B.tz);
+  if (d < 4) faceBall(p);
 }
 function idleBrain(p) {
   const m = G.match;

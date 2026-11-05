@@ -119,25 +119,40 @@ class Rig {
     const ph = p.phase, s = Math.sin(ph), c = Math.cos(ph);
     const swing = (0.22 + 0.78 * a) * w;
     const t = G.time;
+    // direccion del movimiento respecto del cuerpo: adelante (vf) y de costado (vl, + = izquierda del jugador)
+    const fx = Math.sin(p.facing), fz = Math.cos(p.facing);
+    const vf = sp > 0.05 ? (p.vel.x * fx + p.vel.z * fz) / sp : 1;
+    const vl = sp > 0.05 ? (p.vel.x * fz - p.vel.z * fx) / sp : 0;
+    const kf = Math.abs(vf), dir = vf < -0.15 ? -1 : 1;
+    const cc = c * dir; // >0: pierna izquierda en el aire yendo hacia adelante
     // --- locomocion ---
-    T.bodyY = 0.99 - 0.035 * a + Math.abs(c) * 0.04 * a * w; T.bodyRX = 0; T.bodyRZ = clamp(-p.turnRate * sp * 0.012, -0.3, 0.3); T.bodyRY = 0; T.bodyX = 0;
-    T.hipLX = -s * 0.95 * swing; T.hipRX = s * 0.95 * swing; T.hipLZ = 0.03; T.hipRZ = -0.03;
-    T.knL = 0.06 + w * (0.15 + 1.25 * a) * Math.pow(Math.max(0, c), 0.8) + 0.18 * a * w;
-    T.knR = 0.06 + w * (0.15 + 1.25 * a) * Math.pow(Math.max(0, -c), 0.8) + 0.18 * a * w;
-    T.ftL = -0.25 * T.knL * w + 0.1; T.ftR = -0.25 * T.knR * w + 0.1;
-    T.shLX = s * 0.75 * swing; T.shRX = -s * 0.75 * swing; T.shLZ = 0.1 + 0.08 * a; T.shRZ = -0.1 - 0.08 * a;
-    T.elL = -(0.2 + 1.05 * a * w) - Math.max(0, -s) * 0.3 * a; T.elR = -(0.2 + 1.05 * a * w) - Math.max(0, s) * 0.3 * a;
-    T.spX = 0.03 + 0.2 * a + (p.accel || 0) * 0.02; T.spY = s * 0.14 * swing; T.spZ = 0;
-    T.hdX = -T.spX * 0.6 + (G.owner === p ? 0.2 : 0); T.hdY = 0;
-    if (w < 0.3) { // quieto: respiracion y peso
-      T.spX += Math.sin(t * 1.6 + ph) * 0.015;
+    T.bodyY = 0.99 - 0.04 * a + Math.abs(s) * 0.045 * a * w * kf; T.bodyRX = 0; T.bodyRY = 0; T.bodyX = 0;
+    T.bodyRZ = clamp(-p.turnRate * sp * 0.012 - vl * 0.12 * a, -0.32, 0.32);
+    T.hipLX = -s * 0.95 * swing * vf; T.hipRX = s * 0.95 * swing * vf;
+    T.hipLZ = 0.04 + vl * swing * 0.34 * (0.5 + 0.5 * s); T.hipRZ = -0.04 + vl * swing * 0.34 * (0.5 - 0.5 * s);
+    const kneeAmp = w * (0.15 + 1.3 * a * Math.max(0.35, kf));
+    T.knL = 0.06 + kneeAmp * Math.pow(Math.max(0, cc), 0.8) + 0.16 * a * w;
+    T.knR = 0.06 + kneeAmp * Math.pow(Math.max(0, -cc), 0.8) + 0.16 * a * w;
+    // pie apoyado plano en el piso; en el aire, punta hacia abajo
+    const stL = clamp(0.5 - cc * 1.6, 0, 1), stR = clamp(0.5 + cc * 1.6, 0, 1);
+    T.ftL = w * lerp(0.35, -(T.hipLX + T.knL), stL); T.ftR = w * lerp(0.35, -(T.hipRX + T.knR), stR);
+    const armK = 0.45 + 0.55 * kf;
+    T.shLX = s * 0.78 * swing * armK * dir; T.shRX = -s * 0.78 * swing * armK * dir; T.shLZ = 0.1 + 0.08 * a + Math.max(0, vl) * 0.25 * a; T.shRZ = -0.1 - 0.08 * a + Math.min(0, vl) * 0.25 * a;
+    T.elL = -(0.2 + 1.1 * a * w) - Math.max(0, -s) * 0.3 * a; T.elR = -(0.2 + 1.1 * a * w) - Math.max(0, s) * 0.3 * a;
+    // inclinacion: hacia adelante al correr y acelerar, hacia atras al frenar o retroceder
+    T.spX = 0.03 + 0.22 * a * Math.max(0, vf) - 0.1 * a * Math.max(0, -vf) + clamp((p.accelV || 0) * 0.025, -0.2, 0.08);
+    T.spY = s * 0.14 * swing * kf; T.spZ = 0;
+    T.hdX = -T.spX * 0.6 + (G.owner === p ? 0.22 : 0); T.hdY = clamp(p.turnRate * 0.06, -0.45, 0.45);
+    if (w < 0.3) { // quieto: respiracion y peso de un pie al otro
+      const br = Math.sin(t * 1.6 + ph);
+      T.spX += br * 0.015; T.bodyRZ += Math.sin(t * 0.7 + ph) * 0.025; T.hipLZ += 0.03; T.hipRZ -= 0.03; T.knL += 0.08; T.knR += 0.08;
+      T.elL -= 0.1; T.elR -= 0.1; T.ftL = -0.08; T.ftR = -0.08;
       if (p.isGK && G.mode !== 'menu') { // arquero en guardia
         T.bodyY = 0.86; T.hipLX = T.hipRX = -0.45; T.knL = T.knR = 0.85; T.ftL = T.ftR = -0.35; T.spX = 0.32; T.hdX = -0.25;
         T.shLX = T.shRX = -0.55; T.shLZ = 0.45; T.shRZ = -0.45; T.elL = T.elR = -0.7; T.hipLZ = 0.12; T.hipRZ = -0.12;
       }
-    }
-    // --- acciones ---
-    let rate = 14;
+    }    // --- acciones ---
+    let rate = 22;
     const ac = p.action;
     if (ac) {
       rate = 30;

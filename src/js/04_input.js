@@ -11,29 +11,39 @@ const Input = {
     });
     addEventListener('keyup', e => { this.down.delete(e.code); this.released.add(e.code); });
     addEventListener('blur', () => { this.down.forEach(c => this.released.add(c)); this.down.clear(); });
+    // botones del mouse (esquema WASD + mouse): Mouse0 izquierdo, Mouse1 rueda, Mouse2 derecho
+    const cv = $('c');
+    cv.addEventListener('mousedown', e => { if (G.mode !== 'match') return; const c = 'Mouse' + e.button; if (!this.down.has(c)) this.pressed.add(c); this.down.add(c); e.preventDefault(); });
+    addEventListener('mouseup', e => { const c = 'Mouse' + e.button; if (this.down.has(c)) { this.down.delete(c); this.released.add(c); } });
+    cv.addEventListener('contextmenu', e => e.preventDefault());
   },
-  // nombre de accion -> codigos de tecla y boton del joystick
+  // nombre de accion -> tecla principal, tecla extra del esquema y boton del joystick
+  codes(name) {
+    const a = altKeys()[name], out = [CFG.keys[name]];
+    if (a) out.push(a);
+    if (name === 'sprint') out.push('ShiftLeft', 'ShiftRight');
+    return out;
+  },
   btn(name) {
-    const k = CFG.keys[name];
-    if (this.down.has(k)) return true;
-    if (name === 'sprint' && this.down.has('ShiftRight')) return true;
+    for (const k of this.codes(name)) if (this.down.has(k)) return true;
     return !!(this.pad && this.pad[name]);
   },
   hit(name) {
-    const k = CFG.keys[name];
-    return this.pressed.has(k) || (name === 'sprint' && this.pressed.has('ShiftRight')) || !!(this.pad && this.pad[name] && !this.padPrev[name]);
+    for (const k of this.codes(name)) if (this.pressed.has(k)) return true;
+    return !!(this.pad && this.pad[name] && !this.padPrev[name]);
   },
   up(name) {
-    const k = CFG.keys[name];
-    return this.released.has(k) || !!(this.pad && !this.pad[name] && this.padPrev[name]);
-  },
-  // direccion de movimiento en coordenadas de la cancha (la camara mira hacia -z)
+    for (const k of this.codes(name)) if (this.released.has(k)) return true;
+    return !!(this.pad && !this.pad[name] && this.padPrev[name]);
+  },  // direccion de movimiento en coordenadas de la cancha (la camara mira hacia -z)
   move() {
     let x = 0, z = 0;
-    if (this.btn('left') || this.down.has('ArrowLeft')) x -= 1;
-    if (this.btn('right') || this.down.has('ArrowRight')) x += 1;
-    if (this.btn('up') || this.down.has('ArrowUp')) z -= 1;
-    if (this.btn('down') || this.down.has('ArrowDown')) z += 1;
+    // las flechas siempre mueven, salvo que se usen para otra accion
+    const arrows = !Object.values(CFG.keys).some((k, i) => k.startsWith('Arrow') && !['up', 'down', 'left', 'right'].includes(Object.keys(CFG.keys)[i]));
+    if (this.btn('left') || arrows && this.down.has('ArrowLeft')) x -= 1;
+    if (this.btn('right') || arrows && this.down.has('ArrowRight')) x += 1;
+    if (this.btn('up') || arrows && this.down.has('ArrowUp')) z -= 1;
+    if (this.btn('down') || arrows && this.down.has('ArrowDown')) z += 1;
     if (this.pad && Math.hypot(this.pad.ax, this.pad.az) > 0.22) { x = this.pad.ax; z = this.pad.az; }
     const l = Math.hypot(x, z);
     if (l > 1) { x /= l; z /= l; }
@@ -54,5 +64,6 @@ const keyLabel = code => {
   if (!code) return '—';
   if (code.startsWith('Key')) return code.slice(3);
   if (code.startsWith('Digit')) return code.slice(5);
+  if (code.startsWith('Mouse')) return ['CLIC IZQ', 'CLIC RUEDA', 'CLIC DER'][Number(code.slice(5))] || code;
   return ({ Space: 'ESPACIO', ShiftLeft: 'SHIFT', ShiftRight: 'SHIFT DER', ControlLeft: 'CTRL', AltLeft: 'ALT', ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', Enter: 'ENTER', Tab: 'TAB' })[code] || code;
 };

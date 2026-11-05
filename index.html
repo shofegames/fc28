@@ -228,7 +228,7 @@ button{font-family:inherit;color:inherit;cursor:pointer}
   <div class="stitle"><button class="back" id="cBack">‹</button><h2>CONFIGURACIÓN</h2><span>Se guarda en este navegador</span></div>
   <div class="cgrid">
     <div class="cbox"><h3>Gráficos y sonido</h3><div id="cOpts"></div></div>
-    <div class="cbox"><h3>Controles</h3><div id="cKeys"></div><p class="cnote">Tocá una tecla para cambiarla. También anda con joystick (A pase, X filtrado, B disparo, Y centro, LB cambiar, RT correr, RB entrada).</p><button class="sbtn" id="cReset">Restaurar teclas</button></div>
+    <div class="cbox"><h3>Controles</h3><div id="cKeys"></div><p class="cnote">Tocá una tecla para cambiarla (queda como esquema Personalizado). Shift siempre sirve para correr. También anda con joystick (A pase, X filtrado, B disparo, Y centro, LB cambiar, RT correr, RB entrada).</p><button class="sbtn" id="cReset">Restaurar teclas</button></div>
   </div>
 </section>
 
@@ -266,7 +266,7 @@ button{font-family:inherit;color:inherit;cursor:pointer}
   <div class="obox wide">
     <h2>CONTROLES</h2>
     <div class="hgrid" id="helpGrid"></div>
-    <p class="cnote">Mantené apretado pase, filtrado, centro o disparo para cargar la potencia. Un disparo suave sale colocado y con efecto; uno a fondo sale potente. Si apretás pase o disparo antes de que te llegue la pelota, le pegás de primera.</p>
+    <p class="cnote">Mantené apretado pase, filtrado, centro o disparo para cargar la potencia. Un disparo suave sale colocado y con efecto; uno a fondo sale potente. Si apretás pase o disparo antes de que te llegue la pelota, le pegás de primera. Defendiendo, el pase hace entrada y el disparo barrida. Hay otros esquemas de teclas (WASD + mouse, J K L I) en Configuración.</p>
     <button class="obtn" id="hClose">ENTENDIDO</button>
   </div>
 </section>
@@ -328,13 +328,24 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } }
 };
 
-const DEFAULT_KEYS = { up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD', sprint: 'ShiftLeft', pass: 'KeyJ', through: 'KeyK',
-  shoot: 'KeyL', lob: 'KeyI', switch: 'KeyQ', tackle: 'KeyE', action: 'Space' };
-const KEY_NAMES = { up: 'Avanzar', down: 'Retroceder', left: 'Izquierda', right: 'Derecha', sprint: 'Correr', pass: 'Pase corto',
-  through: 'Pase filtrado', shoot: 'Disparar', lob: 'Centro / pase largo', switch: 'Cambiar de jugador', tackle: 'Entrada', action: 'Barrida / acción' };
+// Esquemas de teclas. "flechas" es el clasico de los juegos de futbol en PC: flechas para moverse y todo lo demas
+// al lado, con la otra mano (S pase, D disparo, W filtrado, A centro). Defendiendo, el pase es entrada y el disparo barrida.
+const SCHEMES = {
+  flechas: { name: 'Flechas + A S D W', keys: { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', sprint: 'KeyE', pass: 'KeyS', through: 'KeyW',
+    shoot: 'KeyD', lob: 'KeyA', switch: 'KeyQ', tackle: 'KeyF', action: 'Space' }, alt: {} },
+  wasd: { name: 'WASD + mouse', keys: { up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD', sprint: 'ShiftLeft', pass: 'Space', through: 'KeyR',
+    shoot: 'KeyF', lob: 'KeyX', switch: 'KeyQ', tackle: 'KeyE', action: 'KeyV' }, alt: { pass: 'Mouse0', shoot: 'Mouse2', through: 'Mouse1' } },
+  jkl: { name: 'WASD + J K L I', keys: { up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD', sprint: 'ShiftLeft', pass: 'KeyJ', through: 'KeyK',
+    shoot: 'KeyL', lob: 'KeyI', switch: 'KeyQ', tackle: 'KeyE', action: 'Space' }, alt: {} },
+};
+const DEFAULT_KEYS = SCHEMES.flechas.keys;
+const KEY_NAMES = { up: 'Avanzar', down: 'Retroceder', left: 'Izquierda', right: 'Derecha', sprint: 'Correr', pass: 'Pase corto (defendiendo: entrada)',
+  through: 'Pase filtrado', shoot: 'Disparar (defendiendo: barrida)', lob: 'Centro / pase largo', switch: 'Cambiar de jugador', tackle: 'Entrada', action: 'Barrida / pique' };
 
 const CFG = Object.assign({ quality: null, showFps: false, volume: 0.8, cam: 0 }, store.get('fc28_cfg', {}));
-CFG.keys = Object.assign({}, DEFAULT_KEYS, CFG.keys || {});
+if (!CFG.scheme || !SCHEMES[CFG.scheme] && CFG.scheme !== 'custom') CFG.scheme = 'flechas';
+CFG.keys = CFG.scheme === 'custom' ? Object.assign({}, DEFAULT_KEYS, CFG.keys || {}) : Object.assign({}, SCHEMES[CFG.scheme].keys);
+const altKeys = () => CFG.scheme === 'custom' ? {} : SCHEMES[CFG.scheme].alt;
 function saveCfg() { store.set('fc28_cfg', CFG); }
 
 // Estado global del juego
@@ -693,29 +704,39 @@ const Input = {
     });
     addEventListener('keyup', e => { this.down.delete(e.code); this.released.add(e.code); });
     addEventListener('blur', () => { this.down.forEach(c => this.released.add(c)); this.down.clear(); });
+    // botones del mouse (esquema WASD + mouse): Mouse0 izquierdo, Mouse1 rueda, Mouse2 derecho
+    const cv = $('c');
+    cv.addEventListener('mousedown', e => { if (G.mode !== 'match') return; const c = 'Mouse' + e.button; if (!this.down.has(c)) this.pressed.add(c); this.down.add(c); e.preventDefault(); });
+    addEventListener('mouseup', e => { const c = 'Mouse' + e.button; if (this.down.has(c)) { this.down.delete(c); this.released.add(c); } });
+    cv.addEventListener('contextmenu', e => e.preventDefault());
   },
-  // nombre de accion -> codigos de tecla y boton del joystick
+  // nombre de accion -> tecla principal, tecla extra del esquema y boton del joystick
+  codes(name) {
+    const a = altKeys()[name], out = [CFG.keys[name]];
+    if (a) out.push(a);
+    if (name === 'sprint') out.push('ShiftLeft', 'ShiftRight');
+    return out;
+  },
   btn(name) {
-    const k = CFG.keys[name];
-    if (this.down.has(k)) return true;
-    if (name === 'sprint' && this.down.has('ShiftRight')) return true;
+    for (const k of this.codes(name)) if (this.down.has(k)) return true;
     return !!(this.pad && this.pad[name]);
   },
   hit(name) {
-    const k = CFG.keys[name];
-    return this.pressed.has(k) || (name === 'sprint' && this.pressed.has('ShiftRight')) || !!(this.pad && this.pad[name] && !this.padPrev[name]);
+    for (const k of this.codes(name)) if (this.pressed.has(k)) return true;
+    return !!(this.pad && this.pad[name] && !this.padPrev[name]);
   },
   up(name) {
-    const k = CFG.keys[name];
-    return this.released.has(k) || !!(this.pad && !this.pad[name] && this.padPrev[name]);
-  },
-  // direccion de movimiento en coordenadas de la cancha (la camara mira hacia -z)
+    for (const k of this.codes(name)) if (this.released.has(k)) return true;
+    return !!(this.pad && !this.pad[name] && this.padPrev[name]);
+  },  // direccion de movimiento en coordenadas de la cancha (la camara mira hacia -z)
   move() {
     let x = 0, z = 0;
-    if (this.btn('left') || this.down.has('ArrowLeft')) x -= 1;
-    if (this.btn('right') || this.down.has('ArrowRight')) x += 1;
-    if (this.btn('up') || this.down.has('ArrowUp')) z -= 1;
-    if (this.btn('down') || this.down.has('ArrowDown')) z += 1;
+    // las flechas siempre mueven, salvo que se usen para otra accion
+    const arrows = !Object.values(CFG.keys).some((k, i) => k.startsWith('Arrow') && !['up', 'down', 'left', 'right'].includes(Object.keys(CFG.keys)[i]));
+    if (this.btn('left') || arrows && this.down.has('ArrowLeft')) x -= 1;
+    if (this.btn('right') || arrows && this.down.has('ArrowRight')) x += 1;
+    if (this.btn('up') || arrows && this.down.has('ArrowUp')) z -= 1;
+    if (this.btn('down') || arrows && this.down.has('ArrowDown')) z += 1;
     if (this.pad && Math.hypot(this.pad.ax, this.pad.az) > 0.22) { x = this.pad.ax; z = this.pad.az; }
     const l = Math.hypot(x, z);
     if (l > 1) { x /= l; z /= l; }
@@ -736,6 +757,7 @@ const keyLabel = code => {
   if (!code) return '—';
   if (code.startsWith('Key')) return code.slice(3);
   if (code.startsWith('Digit')) return code.slice(5);
+  if (code.startsWith('Mouse')) return ['CLIC IZQ', 'CLIC RUEDA', 'CLIC DER'][Number(code.slice(5))] || code;
   return ({ Space: 'ESPACIO', ShiftLeft: 'SHIFT', ShiftRight: 'SHIFT DER', ControlLeft: 'CTRL', AltLeft: 'ALT', ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', Enter: 'ENTER', Tab: 'TAB' })[code] || code;
 };
 
@@ -1483,25 +1505,40 @@ class Rig {
     const ph = p.phase, s = Math.sin(ph), c = Math.cos(ph);
     const swing = (0.22 + 0.78 * a) * w;
     const t = G.time;
+    // direccion del movimiento respecto del cuerpo: adelante (vf) y de costado (vl, + = izquierda del jugador)
+    const fx = Math.sin(p.facing), fz = Math.cos(p.facing);
+    const vf = sp > 0.05 ? (p.vel.x * fx + p.vel.z * fz) / sp : 1;
+    const vl = sp > 0.05 ? (p.vel.x * fz - p.vel.z * fx) / sp : 0;
+    const kf = Math.abs(vf), dir = vf < -0.15 ? -1 : 1;
+    const cc = c * dir; // >0: pierna izquierda en el aire yendo hacia adelante
     // --- locomocion ---
-    T.bodyY = 0.99 - 0.035 * a + Math.abs(c) * 0.04 * a * w; T.bodyRX = 0; T.bodyRZ = clamp(-p.turnRate * sp * 0.012, -0.3, 0.3); T.bodyRY = 0; T.bodyX = 0;
-    T.hipLX = -s * 0.95 * swing; T.hipRX = s * 0.95 * swing; T.hipLZ = 0.03; T.hipRZ = -0.03;
-    T.knL = 0.06 + w * (0.15 + 1.25 * a) * Math.pow(Math.max(0, c), 0.8) + 0.18 * a * w;
-    T.knR = 0.06 + w * (0.15 + 1.25 * a) * Math.pow(Math.max(0, -c), 0.8) + 0.18 * a * w;
-    T.ftL = -0.25 * T.knL * w + 0.1; T.ftR = -0.25 * T.knR * w + 0.1;
-    T.shLX = s * 0.75 * swing; T.shRX = -s * 0.75 * swing; T.shLZ = 0.1 + 0.08 * a; T.shRZ = -0.1 - 0.08 * a;
-    T.elL = -(0.2 + 1.05 * a * w) - Math.max(0, -s) * 0.3 * a; T.elR = -(0.2 + 1.05 * a * w) - Math.max(0, s) * 0.3 * a;
-    T.spX = 0.03 + 0.2 * a + (p.accel || 0) * 0.02; T.spY = s * 0.14 * swing; T.spZ = 0;
-    T.hdX = -T.spX * 0.6 + (G.owner === p ? 0.2 : 0); T.hdY = 0;
-    if (w < 0.3) { // quieto: respiracion y peso
-      T.spX += Math.sin(t * 1.6 + ph) * 0.015;
+    T.bodyY = 0.99 - 0.04 * a + Math.abs(s) * 0.045 * a * w * kf; T.bodyRX = 0; T.bodyRY = 0; T.bodyX = 0;
+    T.bodyRZ = clamp(-p.turnRate * sp * 0.012 - vl * 0.12 * a, -0.32, 0.32);
+    T.hipLX = -s * 0.95 * swing * vf; T.hipRX = s * 0.95 * swing * vf;
+    T.hipLZ = 0.04 + vl * swing * 0.34 * (0.5 + 0.5 * s); T.hipRZ = -0.04 + vl * swing * 0.34 * (0.5 - 0.5 * s);
+    const kneeAmp = w * (0.15 + 1.3 * a * Math.max(0.35, kf));
+    T.knL = 0.06 + kneeAmp * Math.pow(Math.max(0, cc), 0.8) + 0.16 * a * w;
+    T.knR = 0.06 + kneeAmp * Math.pow(Math.max(0, -cc), 0.8) + 0.16 * a * w;
+    // pie apoyado plano en el piso; en el aire, punta hacia abajo
+    const stL = clamp(0.5 - cc * 1.6, 0, 1), stR = clamp(0.5 + cc * 1.6, 0, 1);
+    T.ftL = w * lerp(0.35, -(T.hipLX + T.knL), stL); T.ftR = w * lerp(0.35, -(T.hipRX + T.knR), stR);
+    const armK = 0.45 + 0.55 * kf;
+    T.shLX = s * 0.78 * swing * armK * dir; T.shRX = -s * 0.78 * swing * armK * dir; T.shLZ = 0.1 + 0.08 * a + Math.max(0, vl) * 0.25 * a; T.shRZ = -0.1 - 0.08 * a + Math.min(0, vl) * 0.25 * a;
+    T.elL = -(0.2 + 1.1 * a * w) - Math.max(0, -s) * 0.3 * a; T.elR = -(0.2 + 1.1 * a * w) - Math.max(0, s) * 0.3 * a;
+    // inclinacion: hacia adelante al correr y acelerar, hacia atras al frenar o retroceder
+    T.spX = 0.03 + 0.22 * a * Math.max(0, vf) - 0.1 * a * Math.max(0, -vf) + clamp((p.accelV || 0) * 0.025, -0.2, 0.08);
+    T.spY = s * 0.14 * swing * kf; T.spZ = 0;
+    T.hdX = -T.spX * 0.6 + (G.owner === p ? 0.22 : 0); T.hdY = clamp(p.turnRate * 0.06, -0.45, 0.45);
+    if (w < 0.3) { // quieto: respiracion y peso de un pie al otro
+      const br = Math.sin(t * 1.6 + ph);
+      T.spX += br * 0.015; T.bodyRZ += Math.sin(t * 0.7 + ph) * 0.025; T.hipLZ += 0.03; T.hipRZ -= 0.03; T.knL += 0.08; T.knR += 0.08;
+      T.elL -= 0.1; T.elR -= 0.1; T.ftL = -0.08; T.ftR = -0.08;
       if (p.isGK && G.mode !== 'menu') { // arquero en guardia
         T.bodyY = 0.86; T.hipLX = T.hipRX = -0.45; T.knL = T.knR = 0.85; T.ftL = T.ftR = -0.35; T.spX = 0.32; T.hdX = -0.25;
         T.shLX = T.shRX = -0.55; T.shLZ = 0.45; T.shRZ = -0.45; T.elL = T.elR = -0.7; T.hipLZ = 0.12; T.hipRZ = -0.12;
       }
-    }
-    // --- acciones ---
-    let rate = 14;
+    }    // --- acciones ---
+    let rate = 22;
     const ac = p.action;
     if (ac) {
       rate = 30;
@@ -1622,24 +1659,32 @@ class Player {
       const dvx = tx - this.vel.x, dvz = tz - this.vel.z, dl = Math.hypot(dvx, dvz);
       // acelerar cuesta mas que frenar; girar a toda velocidad cuesta un poco mas
       const speeding = wl > sp0;
-      const maxA = (speeding ? 8.5 + this.a.pac / 100 * 5 : 17) * h;
+      // el jugador que maneja el usuario responde mas rapido (como en los juegos de futbol)
+      const hb = G.human && G.human.p === this ? 1.45 : 1;
+      const maxA = (speeding ? 8.5 + this.a.pac / 100 * 5 : 17) * hb * h;
       if (dl > maxA) { this.vel.x += dvx / dl * maxA; this.vel.z += dvz / dl * maxA; } else { this.vel.x = tx; this.vel.z = tz; }
       this.accel = speeding && dl > maxA ? 1 : 0;
     }
     this.pos.x += this.vel.x * h; this.pos.z += this.vel.z * h;
     // orientacion del cuerpo
-    const sp = Math.hypot(this.vel.x, this.vel.z);
+    const sp = Math.hypot(this.vel.x, this.vel.z), spPrev = this._sp || 0; this._sp = sp;
+    this.accelV = damp(this.accelV || 0, (sp - spPrev) / h, 8, h);
+    const moveDir = Math.atan2(this.vel.x, this.vel.z);
     let tf = this.facing;
-    if (this.wantFace != null && !(ac && (ac.type === 'slide' || ac.type === 'dive'))) tf = this.wantFace;
-    else if (sp > 0.5 && !(ac && ac.type === 'dive')) tf = Math.atan2(this.vel.x, this.vel.z);
-    const rate = (ac && ac.type === 'kick') ? 3 : sp < 2.5 ? 11 : 7.5;
+    const busy = ac && (ac.type === 'slide' || ac.type === 'dive');
+    if (this.wantFace != null && !busy && !(sp > 3.6 && Math.abs(angWrap(this.wantFace - moveDir)) > 1.6)) tf = this.wantFace; // no corre para atras mirando la pelota
+    else if (sp > 1.0 && !(ac && ac.type === 'dive')) tf = moveDir;
+    const human = G.human && G.human.p === this;
+    const rate = (ac && ac.type === 'kick') ? 3 : human ? (sp < 3 ? 16 : 10) : sp < 2.5 ? 10 : 7;
     const df = angWrap(tf - this.facing), st = clamp(df, -rate * h, rate * h);
-    this.facing = angWrap(this.facing + st); this.turnRate = st / h;
+    this.facing = angWrap(this.facing + st); this.turnRate = damp(this.turnRate, st / h, 10, h);
+    // la zancada es mas corta de costado y para atras
+    const vf = sp > 0.05 ? Math.abs(Math.cos(moveDir - this.facing)) : 1;
     // energia
     if (this.sprint && sp > 5) this.stamina = Math.max(0, this.stamina - h * 0.011 * (1.45 - this.a.phy / 100));
     else this.stamina = Math.min(1, this.stamina + h * (sp < 2 ? 0.006 : 0.002));
     // fase de la carrera: avanza con la distancia recorrida (los pies no patinan)
-    this.phase += sp * h / (1.0 + sp * 0.17) * TAU;
+    this.phase += sp * h / ((1.0 + sp * 0.17) * (0.55 + 0.45 * vf)) * TAU;
   }
 }
 
@@ -2055,11 +2100,13 @@ function faceBall(p) { const b = G.ball; p.wantFace = Math.atan2(b.px - p.pos.x,
 function assignRoles() {
   const b = G.ball, o = G.owner;
   for (const t of G.teams) {
+    const prevC = t.chaser, prevP = t.presser, prevS = t.support;
     t.chaser = t.presser = t.cover = null; t.support = [];
     const field = t.players.filter(p => !p.isGK);
     if (!o) {
       let best = null, bt = 1e9;
-      for (const p of field) { const it = interceptFor(p, true); const tt = it.t + Math.hypot(it.x - p.pos.x, it.z - p.pos.z) * 0.02; if (tt < bt) { bt = tt; best = p; } }
+      // el que ya iba sigue yendo salvo que otro llegue claramente antes (evita que dos jugadores duden)
+      for (const p of field) { const it = interceptFor(p, true); const tt = it.t + Math.hypot(it.x - p.pos.x, it.z - p.pos.z) * 0.02 - (p === prevC ? 0.35 : 0); if (tt < bt) { bt = tt; best = p; } }
       t.chaser = best;
     } else if (o.team !== t) {
       const gx = t.ownGoalX;
@@ -2067,12 +2114,12 @@ function assignRoles() {
       for (const p of field) {
         const d = Math.hypot(p.pos.x - o.pos.x, p.pos.z - o.pos.z);
         const goalSide = (o.pos.x - p.pos.x) * Math.sign(-gx || 1) > 0 ? 0 : 4; // los que estan del lado del arco cuentan como mas cerca
-        const s = d + goalSide;
+        const s = d + goalSide - (p === prevP ? 2.5 : 0);
         if (s < bs) { ss = bs; second = best; bs = s; best = p; } else if (s < ss) { ss = s; second = p; }
       }
       t.presser = best; t.cover = ss < 22 ? second : null;
     } else {
-      const ds = field.filter(p => p !== o).map(p => ({ p, d: Math.hypot(p.pos.x - o.pos.x, p.pos.z - o.pos.z) + (p.slot <= 4 && t.form[p.slot].role === 'DF' ? 6 : 0) })).sort((a, b) => a.d - b.d);
+      const ds = field.filter(p => p !== o).map(p => ({ p, d: Math.hypot(p.pos.x - o.pos.x, p.pos.z - o.pos.z) + (t.form[p.slot].role === 'DF' ? 6 : 0) - (prevS.includes(p) ? 4 : 0) })).sort((a, b) => a.d - b.d);
       t.support = ds.slice(0, 2).map(e => e.p);
     }
   }
@@ -2171,9 +2218,15 @@ function brain(p, h) {
       moveTo(p, o.pos.x + dx / dl * 6, o.pos.z + dz / dl * 6); faceBall(p); return;
     }
   }
-  const t = formationTarget(p);
-  const d = moveTo(p, t.x, t.z);
-  if (d < 3) faceBall(p);
+  const t = formationTarget(p), B = p.brain;
+  if (B.tx == null || Math.hypot(B.tx - t.x, B.tz - t.z) > 12) { B.tx = t.x; B.tz = t.z; }
+  B.tx = damp(B.tx, t.x, 2.5, DT); B.tz = damp(B.tz, t.z, 2.5, DT);
+  // si ya esta cerca de su lugar, se queda (no da pasitos todo el tiempo)
+  const dd = Math.hypot(B.tx - p.pos.x, B.tz - p.pos.z);
+  if (B.hold && dd < 2.2) { p.want.x *= 0.85; p.want.z *= 0.85; p.sprint = false; faceBall(p); return; }
+  B.hold = dd < 0.8;
+  const d = moveTo(p, B.tx, B.tz);
+  if (d < 4) faceBall(p);
 }
 function idleBrain(p) {
   const m = G.match;
@@ -2554,6 +2607,14 @@ class Human {
       else { p.want.x = 0; p.want.z = 0; if (G.owner !== p) faceBall(p); }
     }
     const mine = G.owner === p;
+    const defending = G.owner && G.owner.team !== this.team && !G.ball.held;
+    // defendiendo: el boton de pase hace entrada y el de disparo barrida (como en los juegos de futbol)
+    if (defending) {
+      this.charge = null; Hud.power(null);
+      if (Input.hit('pass') || Input.hit('tackle')) startTackle(p);
+      if (Input.hit('shoot') || Input.hit('action')) startSlide(p);
+      return;
+    }
     // acciones con carga de potencia
     for (const a of ['pass', 'through', 'shoot', 'lob']) {
       if (Input.hit(a) && !this.charge) this.charge = { a, t0: G.time };
@@ -2906,7 +2967,7 @@ const UI = {
     click('pExit', () => { togglePause(false); fadeTo(() => startAttract()); });
     click('eNext', () => { $('end').classList.add('hidden'); if (G.match.state === 'halftime') { G.match.secondHalf(); G.paused = false; } else fadeTo(() => startMatch()); });
     click('eMenu', () => { $('end').classList.add('hidden'); G.paused = false; fadeTo(() => startAttract()); });
-    click('cReset', () => { CFG.keys = Object.assign({}, DEFAULT_KEYS); saveCfg(); this.buildCfg(); });
+    click('cReset', () => { CFG.scheme = 'flechas'; CFG.keys = Object.assign({}, DEFAULT_KEYS); saveCfg(); this.buildCfg(); });
     // botones del menu con sonido al pasar
     document.querySelectorAll('.hbtn,.obtn,.cta').forEach(b => b.addEventListener('mouseenter', () => { if (AU.ctx) AU.tone(1400, 0.03, 0.02, 'sine'); }));
   },
@@ -2962,20 +3023,24 @@ const UI = {
   // ---- configuracion ----
   buildCfg() {
     const seg = (label, cur, items, on) => { const id = 'cs' + Math.random().toString(36).slice(2, 7); setTimeout(() => $(id).querySelectorAll('button').forEach(b => b.onclick = () => { AU.ui(); on(b.dataset.v); saveCfg(); this.buildCfg(); })); return `<div class="crow2"><span>${label}</span><div class="seg" id="${id}">${items.map(([v, t]) => `<button data-v="${v}" class="${String(cur) === String(v) ? 'on' : ''}">${t}</button>`).join('')}</div></div>`; };
+    const schemes = Object.keys(SCHEMES).map(k => [k, SCHEMES[k].name]); if (CFG.scheme === 'custom') schemes.push(['custom', 'Personalizado']);
     $('cOpts').innerHTML =
+      seg('Teclas', CFG.scheme, schemes, v => { CFG.scheme = v; if (SCHEMES[v]) CFG.keys = Object.assign({}, SCHEMES[v].keys); }) +
       seg('Calidad gráfica', CFG.quality, Object.keys(QUALITY).map(k => [k, QUALITY[k].name]), v => { CFG.quality = v; applyQuality(); }) +
       seg('Cámara', CFG.cam, CAM_PRESETS.map((c, i) => [i, c.name]), v => { CFG.cam = Number(v); }) +
       seg('Volumen', Math.round(CFG.volume * 4) / 4, [[0, '0'], [0.25, '25'], [0.5, '50'], [0.75, '75'], [1, '100']], v => AU.setVolume(Number(v))) +
       seg('Mostrar FPS', CFG.showFps, [[false, 'No'], [true, 'Sí']], v => { CFG.showFps = v === 'true'; $('fps').classList.toggle('hidden', !CFG.showFps); }) +
       `<p class="cnote">Baja/Media/Alta/Ultra cambian la resolución, las sombras y el público. Las sombras y el antialiasing se aplican del todo al recargar la página.</p>`;
-    $('cKeys').innerHTML = Object.keys(DEFAULT_KEYS).map(k => `<div class="crow2"><span>${KEY_NAMES[k]}</span><button class="keyb" data-k="${k}">${keyLabel(CFG.keys[k])}</button></div>`).join('');
+    const alt = altKeys();
+    $('cKeys').innerHTML = Object.keys(DEFAULT_KEYS).map(k => `<div class="crow2"><span>${KEY_NAMES[k]}${alt[k] ? ' <small style="color:var(--muted)">(también ' + keyLabel(alt[k]) + ')</small>' : ''}</span><button class="keyb" data-k="${k}">${keyLabel(CFG.keys[k])}</button></div>`).join('');
     $('cKeys').querySelectorAll('.keyb').forEach(b => b.onclick = () => {
       b.classList.add('wait'); b.textContent = 'apretá una tecla';
-      Input.rebinding = code => { Input.rebinding = null; if (code !== 'Escape') { for (const k in CFG.keys) if (CFG.keys[k] === code) CFG.keys[k] = CFG.keys[b.dataset.k]; CFG.keys[b.dataset.k] = code; saveCfg(); } this.buildCfg(); };
+      Input.rebinding = code => { Input.rebinding = null; if (code !== 'Escape') { for (const k in CFG.keys) if (CFG.keys[k] === code) CFG.keys[k] = CFG.keys[b.dataset.k]; CFG.keys[b.dataset.k] = code; CFG.scheme = 'custom'; saveCfg(); } this.buildCfg(); };
     });
   },
   help(v) {
-    if (v) $('helpGrid').innerHTML = Object.keys(DEFAULT_KEYS).map(k => `<div><span>${KEY_NAMES[k]}</span><kbd>${keyLabel(CFG.keys[k])}</kbd></div>`).join('') +
+    const alt = altKeys();
+    if (v) $('helpGrid').innerHTML = Object.keys(DEFAULT_KEYS).map(k => `<div><span>${KEY_NAMES[k]}</span><kbd>${keyLabel(CFG.keys[k])}${alt[k] ? ' / ' + keyLabel(alt[k]) : ''}${k === 'sprint' && CFG.keys[k] !== 'ShiftLeft' ? ' / SHIFT' : ''}</kbd></div>`).join('') +
       `<div><span>Pausa</span><kbd>ESC / P</kbd></div><div><span>Cambiar cámara</span><kbd>C</kbd></div><div><span>Esta ayuda</span><kbd>H</kbd></div><div><span>Joystick</span><kbd>A X B Y LB RT RB</kbd></div>`;
     $('help').classList.toggle('hidden', !v);
     if (G.mode === 'match' && !$('pause').classList.contains('hidden')) return;

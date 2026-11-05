@@ -71,6 +71,14 @@ class Human {
       else { p.want.x = 0; p.want.z = 0; if (G.owner !== p) faceBall(p); }
     }
     const mine = G.owner === p;
+    const defending = G.owner && G.owner.team !== this.team && !G.ball.held;
+    // defendiendo: el boton de pase hace entrada y el de disparo barrida (como en los juegos de futbol)
+    if (defending) {
+      this.charge = null; Hud.power(null);
+      if (Input.hit('pass') || Input.hit('tackle')) startTackle(p);
+      if (Input.hit('shoot') || Input.hit('action')) startSlide(p);
+      return;
+    }
     // acciones con carga de potencia
     for (const a of ['pass', 'through', 'shoot', 'lob']) {
       if (Input.hit(a) && !this.charge) this.charge = { a, t0: G.time };

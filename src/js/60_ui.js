@@ -62,7 +62,7 @@ const UI = {
     click('pExit', () => { togglePause(false); fadeTo(() => startAttract()); });
     click('eNext', () => { $('end').classList.add('hidden'); if (G.match.state === 'halftime') { G.match.secondHalf(); G.paused = false; } else fadeTo(() => startMatch()); });
     click('eMenu', () => { $('end').classList.add('hidden'); G.paused = false; fadeTo(() => startAttract()); });
-    click('cReset', () => { CFG.keys = Object.assign({}, DEFAULT_KEYS); saveCfg(); this.buildCfg(); });
+    click('cReset', () => { CFG.scheme = 'flechas'; CFG.keys = Object.assign({}, DEFAULT_KEYS); saveCfg(); this.buildCfg(); });
     // botones del menu con sonido al pasar
     document.querySelectorAll('.hbtn,.obtn,.cta').forEach(b => b.addEventListener('mouseenter', () => { if (AU.ctx) AU.tone(1400, 0.03, 0.02, 'sine'); }));
   },
@@ -118,20 +118,24 @@ const UI = {
   // ---- configuracion ----
   buildCfg() {
     const seg = (label, cur, items, on) => { const id = 'cs' + Math.random().toString(36).slice(2, 7); setTimeout(() => $(id).querySelectorAll('button').forEach(b => b.onclick = () => { AU.ui(); on(b.dataset.v); saveCfg(); this.buildCfg(); })); return `<div class="crow2"><span>${label}</span><div class="seg" id="${id}">${items.map(([v, t]) => `<button data-v="${v}" class="${String(cur) === String(v) ? 'on' : ''}">${t}</button>`).join('')}</div></div>`; };
+    const schemes = Object.keys(SCHEMES).map(k => [k, SCHEMES[k].name]); if (CFG.scheme === 'custom') schemes.push(['custom', 'Personalizado']);
     $('cOpts').innerHTML =
+      seg('Teclas', CFG.scheme, schemes, v => { CFG.scheme = v; if (SCHEMES[v]) CFG.keys = Object.assign({}, SCHEMES[v].keys); }) +
       seg('Calidad gráfica', CFG.quality, Object.keys(QUALITY).map(k => [k, QUALITY[k].name]), v => { CFG.quality = v; applyQuality(); }) +
       seg('Cámara', CFG.cam, CAM_PRESETS.map((c, i) => [i, c.name]), v => { CFG.cam = Number(v); }) +
       seg('Volumen', Math.round(CFG.volume * 4) / 4, [[0, '0'], [0.25, '25'], [0.5, '50'], [0.75, '75'], [1, '100']], v => AU.setVolume(Number(v))) +
       seg('Mostrar FPS', CFG.showFps, [[false, 'No'], [true, 'Sí']], v => { CFG.showFps = v === 'true'; $('fps').classList.toggle('hidden', !CFG.showFps); }) +
       `<p class="cnote">Baja/Media/Alta/Ultra cambian la resolución, las sombras y el público. Las sombras y el antialiasing se aplican del todo al recargar la página.</p>`;
-    $('cKeys').innerHTML = Object.keys(DEFAULT_KEYS).map(k => `<div class="crow2"><span>${KEY_NAMES[k]}</span><button class="keyb" data-k="${k}">${keyLabel(CFG.keys[k])}</button></div>`).join('');
+    const alt = altKeys();
+    $('cKeys').innerHTML = Object.keys(DEFAULT_KEYS).map(k => `<div class="crow2"><span>${KEY_NAMES[k]}${alt[k] ? ' <small style="color:var(--muted)">(también ' + keyLabel(alt[k]) + ')</small>' : ''}</span><button class="keyb" data-k="${k}">${keyLabel(CFG.keys[k])}</button></div>`).join('');
     $('cKeys').querySelectorAll('.keyb').forEach(b => b.onclick = () => {
       b.classList.add('wait'); b.textContent = 'apretá una tecla';
-      Input.rebinding = code => { Input.rebinding = null; if (code !== 'Escape') { for (const k in CFG.keys) if (CFG.keys[k] === code) CFG.keys[k] = CFG.keys[b.dataset.k]; CFG.keys[b.dataset.k] = code; saveCfg(); } this.buildCfg(); };
+      Input.rebinding = code => { Input.rebinding = null; if (code !== 'Escape') { for (const k in CFG.keys) if (CFG.keys[k] === code) CFG.keys[k] = CFG.keys[b.dataset.k]; CFG.keys[b.dataset.k] = code; CFG.scheme = 'custom'; saveCfg(); } this.buildCfg(); };
     });
   },
   help(v) {
-    if (v) $('helpGrid').innerHTML = Object.keys(DEFAULT_KEYS).map(k => `<div><span>${KEY_NAMES[k]}</span><kbd>${keyLabel(CFG.keys[k])}</kbd></div>`).join('') +
+    const alt = altKeys();
+    if (v) $('helpGrid').innerHTML = Object.keys(DEFAULT_KEYS).map(k => `<div><span>${KEY_NAMES[k]}</span><kbd>${keyLabel(CFG.keys[k])}${alt[k] ? ' / ' + keyLabel(alt[k]) : ''}${k === 'sprint' && CFG.keys[k] !== 'ShiftLeft' ? ' / SHIFT' : ''}</kbd></div>`).join('') +
       `<div><span>Pausa</span><kbd>ESC / P</kbd></div><div><span>Cambiar cámara</span><kbd>C</kbd></div><div><span>Esta ayuda</span><kbd>H</kbd></div><div><span>Joystick</span><kbd>A X B Y LB RT RB</kbd></div>`;
     $('help').classList.toggle('hidden', !v);
     if (G.mode === 'match' && !$('pause').classList.contains('hidden')) return;
