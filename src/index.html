@@ -29,7 +29,7 @@
       <button class="hbtn" id="bTour" disabled><b>TORNEOS <em class="soon">PRONTO</em></b><i>Copas y ligas con los clubes</i></button>
       <button class="hbtn" id="bCfg"><b>CONFIGURACIÓN</b><i>Gráficos, sonido y controles</i></button>
     </nav>
-    <div class="hfoot">© 2026 shofegames · FC 28 · Fase 1</div>
+    <div class="hfoot">© 2026 shofegames · FC 28</div>
   </div>
   <div class="hcard" id="hcard"></div>
 </section>
@@ -73,8 +73,23 @@
 </div>
 <div id="fps" class="hidden"></div>
 
-<!-- ============ PAUSA ============ -->
-<section id="pause" class="overlay hidden">
+<!-- ============ CONTROLES TACTILES ============ -->
+<div id="touch" class="hidden">
+  <div id="tStickZone"></div>
+  <div id="tStick"><div id="tKnob"></div></div>
+  <div class="tbtns">
+    <button class="tb big" data-a="shoot" id="tbShoot"><b>TIRO</b></button>
+    <button class="tb big" data-a="pass" id="tbPass"><b>PASE</b></button>
+    <button class="tb" data-a="through" id="tbThrough"><b>FILTRADO</b></button>
+    <button class="tb" data-a="lob" id="tbLob"><b>CENTRO</b></button>
+    <button class="tb" data-a="sprint" id="tbSprint"><b>CORRER</b></button>
+    <button class="tb sm" data-a="switch" id="tbSwitch"><b>CAMBIAR</b></button>
+  </div>
+  <button id="tPause" aria-label="Pausa">❚❚</button>
+</div>
+<div id="rotate" class="hidden"><div class="rph"></div><p>Girá el celular para jugar</p></div>
+
+<!-- ============ PAUSA ============ --><section id="pause" class="overlay hidden">
   <div class="obox">
     <h2>PAUSA</h2>
     <div class="ostats" id="pStats"></div>

@@ -205,3 +205,72 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 .prow .ov{font-family:'Barlow Condensed',sans-serif;font-weight:800;color:var(--acc);text-align:right}
 .prow .yc{display:inline-block;width:8px;height:11px;background:#ffe000;border-radius:1px;margin-left:5px;vertical-align:middle}
 @media (max-width:820px){.subcols{grid-template-columns:1fr}}
+
+/* ---------- celular: controles tactiles ---------- */
+#touch{position:fixed;inset:0;z-index:6;pointer-events:none;touch-action:none;-webkit-user-select:none;user-select:none}
+#tStickZone{position:absolute;left:0;bottom:0;width:46%;height:72%;pointer-events:auto;touch-action:none}
+#tStick{position:absolute;width:124px;height:124px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.08),rgba(255,255,255,.16));border:2px solid rgba(255,255,255,.28);pointer-events:none;opacity:.55;transition:opacity .15s}
+#tStick.act{opacity:1}
+#tKnob{position:absolute;left:50%;top:50%;width:58px;height:58px;margin:-29px 0 0 -29px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#fff,#cfd6e2);box-shadow:0 4px 14px rgba(0,0,0,.45)}
+.tbtns{position:absolute;right:calc(14px + env(safe-area-inset-right,0px));bottom:14px;width:300px;height:236px;pointer-events:none}
+.tb{position:absolute;pointer-events:auto;touch-action:none;border-radius:50%;border:2px solid rgba(255,255,255,.35);background:rgba(10,13,19,.55);color:#fff;display:flex;align-items:center;justify-content:center;width:66px;height:66px;padding:0;-webkit-tap-highlight-color:transparent;backdrop-filter:blur(4px);transition:transform .06s,background .06s}
+.tb b{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:13px;letter-spacing:.04em;pointer-events:none}
+.tb.big{width:84px;height:84px}
+.tb.big b{font-size:16px}
+.tb.sm{width:58px;height:58px}
+.tb.on{transform:scale(.92);background:rgba(184,255,60,.55);border-color:var(--acc)}
+#tbShoot{right:0;bottom:0;background:rgba(255,77,94,.42);border-color:rgba(255,120,130,.7)}
+#tbPass{right:96px;bottom:0;background:rgba(184,255,60,.32);border-color:rgba(184,255,60,.7)}
+#tbThrough{right:96px;bottom:96px}
+#tbLob{right:8px;bottom:96px}
+#tbSprint{right:186px;bottom:6px}
+#tbSwitch{right:186px;bottom:96px}
+#touch.defending #tbPass{background:rgba(60,160,255,.42);border-color:rgba(120,190,255,.8)}
+#touch.defending #tbShoot{background:rgba(255,160,40,.42);border-color:rgba(255,190,90,.8)}
+#tPause{position:absolute;right:calc(12px + env(safe-area-inset-right,0px));top:10px;width:46px;height:46px;border-radius:12px;border:1px solid rgba(255,255,255,.3);background:rgba(10,13,19,.6);color:#fff;font-size:15px;pointer-events:auto;letter-spacing:-2px}
+body.touchmode #hint{display:none}
+body.touchmode #pcard{left:auto;right:70px;top:10px;bottom:auto;height:38px}
+body.touchmode #pcard .pnum{width:38px;height:38px;font-size:20px}
+body.touchmode #pcard .pinfo{height:38px;min-width:130px;padding-top:2px}
+body.touchmode #pcard .pname{font-size:15px}
+body.touchmode #power{bottom:auto;top:62px}
+#rotate{position:fixed;inset:0;z-index:70;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:rgba(5,7,10,.94);font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:24px;letter-spacing:.04em;text-align:center;padding:16px}
+#rotate .rph{width:46px;height:78px;border:4px solid #fff;border-radius:10px;animation:rot 1.8s ease-in-out infinite}
+@keyframes rot{0%,20%{transform:rotate(0)}60%,100%{transform:rotate(-90deg)}}
+
+/* ---------- pantallas bajas (celular acostado) ---------- */
+@media (max-height:520px){
+  .logo{font-size:56px}
+  .lsub{margin:6px 0 12px;font-size:11px}
+  #home .hpanel{padding:18px 22px 12px;width:min(380px,100%)}
+  .hbtn{padding:7px 12px}
+  .hbtn b{font-size:18px}
+  .hbtn.big{padding:10px 14px;margin-bottom:4px}
+  .hbtn.big b{font-size:22px}
+  .hbtn i{display:none}
+  .hbtn.big i{display:block}
+  .hcard{display:none}
+  .stitle{top:12px;left:16px}
+  .stitle h2{font-size:28px}
+  .back{width:38px;height:38px;font-size:24px}
+  #setup{padding:64px 12px 90px;gap:12px}
+  .tpick{width:270px;padding:10px 12px}
+  .tpick .crest{width:72px;height:72px}
+  .tpick .tname{font-size:22px}
+  .tpick .rat b{font-size:18px}
+  .spick{gap:12px}
+  .vs{font-size:30px}
+  .cta{padding:12px 24px;font-size:22px}
+  .sgo{bottom:12px;right:14px}
+  .cgrid{top:64px}
+  #sb{left:12px;top:10px;height:32px;transform-origin:left top}
+  #sb .sbt{font-size:17px;padding:0 9px}
+  #sb .sbt img{width:22px;height:22px}
+  #sb .sbs{font-size:20px}
+  #sb .sbc{font-size:17px;min-width:60px}
+  #sbInfo{left:12px;top:48px}
+  #toasts{left:12px;top:74px}
+  #msg .mbig{font-size:70px}
+  .obox{padding:14px 16px}
+  .obtn{padding:10px 14px;font-size:18px}
+}

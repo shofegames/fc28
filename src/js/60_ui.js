@@ -74,7 +74,7 @@ const UI = {
     click('bCfg', () => this.go('cfg'));
     click('sBack', () => { AU.uiBack(); this.go('home'); });
     click('cBack', () => { AU.uiBack(); this.go('home'); });
-    click('bStart', () => { store.set('fc28_setup', G.setup); fadeTo(() => startMatch()); });
+    click('bStart', () => { store.set('fc28_setup', G.setup); Touch.fullscreen(); fadeTo(() => startMatch()); });
     click('pCont', () => togglePause(false));
     click('pHelp', () => this.help(true));
     click('pSubs', () => Subs.open());
@@ -145,6 +145,7 @@ const UI = {
     const schemes = Object.keys(SCHEMES).map(k => [k, SCHEMES[k].name]); if (CFG.scheme === 'custom') schemes.push(['custom', 'Personalizado']);
     $('cOpts').innerHTML =
       seg('Teclas', CFG.scheme, schemes, v => { CFG.scheme = v; if (SCHEMES[v]) CFG.keys = Object.assign({}, SCHEMES[v].keys); }) +
+      seg('Controles táctiles', CFG.touch, [['auto', 'Auto'], ['on', 'Sí'], ['off', 'No']], v => { CFG.touch = v; }) +
       seg('Calidad gráfica', CFG.quality, Object.keys(QUALITY).map(k => [k, QUALITY[k].name]), v => { CFG.quality = v; applyQuality(); }) +
       seg('Cámara', CFG.cam, CAM_PRESETS.map((c, i) => [i, c.name]), v => { CFG.cam = Number(v); }) +
       seg('Volumen', Math.round(CFG.volume * 4) / 4, [[0, '0'], [0.25, '25'], [0.5, '50'], [0.75, '75'], [1, '100']], v => AU.setVolume(Number(v))) +
@@ -159,7 +160,8 @@ const UI = {
   },
   help(v) {
     const alt = altKeys();
-    if (v) $('helpGrid').innerHTML = Object.keys(DEFAULT_KEYS).map(k => `<div><span>${KEY_NAMES[k]}</span><kbd>${keyLabel(CFG.keys[k])}${alt[k] ? ' / ' + keyLabel(alt[k]) : ''}${k === 'sprint' && CFG.keys[k] !== 'ShiftLeft' ? ' / SHIFT' : ''}</kbd></div>`).join('') +
+    if (v && Touch.on) $('helpGrid').innerHTML = [['Moverse', 'Joystick (izquierda)'], ['Correr', 'CORRER o joystick a fondo'], ['Pase corto', 'PASE'], ['Disparo', 'TIRO (mantené para más fuerza)'], ['Pase filtrado', 'FILTRADO'], ['Centro / pase largo', 'CENTRO'], ['Cambiar de jugador', 'CAMBIAR'], ['Entrada', 'ENTRADA (cuando defendés)'], ['Barrida', 'BARRIDA (cuando defendés)'], ['Pausa', '❚❚ arriba a la derecha']].map(r => `<div><span>${r[0]}</span><kbd>${r[1]}</kbd></div>`).join('');
+    else if (v) $('helpGrid').innerHTML = Object.keys(DEFAULT_KEYS).map(k => `<div><span>${KEY_NAMES[k]}</span><kbd>${keyLabel(CFG.keys[k])}${alt[k] ? ' / ' + keyLabel(alt[k]) : ''}${k === 'sprint' && CFG.keys[k] !== 'ShiftLeft' ? ' / SHIFT' : ''}</kbd></div>`).join('') +
       `<div><span>Pausa</span><kbd>ESC / P</kbd></div><div><span>Cambiar cámara</span><kbd>C</kbd></div><div><span>Esta ayuda</span><kbd>H</kbd></div><div><span>Joystick</span><kbd>A X B Y LB RT RB</kbd></div>`;
     $('help').classList.toggle('hidden', !v);
     if (G.mode === 'match' && !$('pause').classList.contains('hidden')) return;

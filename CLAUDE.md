@@ -24,6 +24,11 @@ Juego de fútbol 3D (11 contra 11) para el navegador, del usuario (GitHub `shofe
 - Esquemas en `SCHEMES` (00_core): `flechas` (predeterminado: flechas mover, S pase, D disparo, W filtrado, A centro, E correr, Q cambiar), `wasd` (WASD + mouse: clic izq pase, clic der disparo, Espacio pase) y `jkl` (el original). Shift siempre corre. Defendiendo, pase = entrada y disparo = barrida. Cambiar una tecla deja el esquema en `custom`.
 - El jugador del usuario acelera 1.45x y gira mas rapido que la IA (31_player).
 
+## Celular
+- `05_touch.js`: joystick dinámico (mitad izquierda) y botones (PASE, TIRO, FILTRADO, CENTRO, CORRER, CAMBIAR) que generan teclas virtuales `T_<accion>` en `Input`. Joystick a fondo = correr. Defendiendo los botones dicen ENTRADA/BARRIDA. Se activa solo en pantallas táctiles (Configuración → Controles táctiles: Auto/Sí/No).
+- En vertical aparece "Girá el celular" y el partido se pausa. Al tocar COMENZAR pide pantalla completa y horizontal (Android).
+- Estilos para pantallas bajas en `@media (max-height:520px)`. Para probar: viewport 844x390 y `CFG.touch='on'`.
+
 ## Pruebas
 - `build.ps1 -Dev`, abrir `fc28-dev`, y manejar todo con `__e(...)`: `G.paused=true` y llamar `step(DT)` en bucle para simular minutos en milisegundos.
 - Nunca dejar `__e=` en `index.html`: `grep -c "__e=" index.html` tiene que dar 0 antes de publicar.
@@ -35,4 +40,4 @@ Juego de fútbol 3D (11 contra 11) para el navegador, del usuario (GitHub `shofe
 ## Estado (Fase 1, 2026-11-04)
 Hecho: cancha reglamentaria, arcos con redes que se mueven, estadio con público animado, pelota física, 22 jugadores 3D animados, cámara TV (+ TV alta y cercana), controles WASD/JKLI/Q/E/Espacio + joystick, pases (corto, filtrado, largo, centro, de primera), disparos (colocado, potente, vaselina, cabezazo), IA de los dos equipos con formaciones y tácticas, arqueros con estiradas, saques del medio, laterales, córners, saques de arco, goles, dos tiempos, estadísticas, menú, selección de equipos, configuración, pausa.
 Fase 3 (2026-11-05, commit local, falta publicar): árbitro y 2 asistentes 3D (52_referee: diagonal, tarjetas, banderín), faltas con ventaja, amarillas/rojas/doble amarilla y expulsión, tiros libres con barrera, penales (cámara atrás del pateador, el arquero adivina un lado), fuera de juego (snapshot al patear, se cobra al intervenir), tiro libre indirecto, tiempo añadido, cambios/formación/táctica/posiciones desde la pausa o el entretiempo (53_subs), la CPU hace 3 cambios por cansancio.
-Falta: repetición del gol, entrenamiento, torneos, lluvia, suplentes sentados en el banco, modelos GLB definitivos, LOD, controles táctiles.
+Falta: repetición del gol, entrenamiento, torneos, lluvia, suplentes sentados en el banco, modelos GLB definitivos, LOD, controles táctiles listos (falta probar en un celular real).

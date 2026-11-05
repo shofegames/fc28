@@ -30,7 +30,7 @@ function startAttract() {
   G.match.start();
   R.setEnv(G.setup.night, G.setup.cloudy);
   Stadium.drawScreen();
-  Hud.show(false); Cam.mode = 'menu';
+  Hud.show(false); Touch.show(false); Cam.mode = 'menu';
   $('home').classList.remove('hidden'); UI.go('home');
   $('pause').classList.add('hidden'); $('end').classList.add('hidden'); $('help').classList.add('hidden');
 }
@@ -45,7 +45,7 @@ function startMatch() {
   Stadium.drawScreen(G.teams[0].club.short + ' 0 - 0 ' + G.teams[1].club.short);
   for (const s of ['home', 'setup', 'cfg']) $(s).classList.add('hidden');
   $('end').classList.add('hidden');
-  Hud.init(); Hud.show(true);
+  Hud.init(); Hud.show(true); Touch.show(true);
   G.match.start();
   G.human.select(G.match.restart.taker);
   Cam.snap(); Cam.intro();
@@ -127,7 +127,7 @@ function render(dt, alpha) {
   Stadium.update(G.time, Math.max(AU.excite, danger * 0.25));
   AU.update(dt, danger);
   if (dt > 0) Cam.update(dt);
-  Hud.update();
+  Hud.update(); Touch.update();
   G.renderer.render(G.scene, G.camera);
 }
 function boot() {
@@ -137,6 +137,7 @@ function boot() {
   Pitch.build(); Goals.build(); Stadium.build();
   G.ball = new Ball();
   UI.init();
+  Touch.init();
   startAttract();
   $('fps').classList.toggle('hidden', !CFG.showFps);
   requestAnimationFrame(t => { last = t; requestAnimationFrame(loop); });

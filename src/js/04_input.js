@@ -22,10 +22,12 @@ const Input = {
     const a = altKeys()[name], out = [CFG.keys[name]];
     if (a) out.push(a);
     if (name === 'sprint') out.push('ShiftLeft', 'ShiftRight');
+    out.push('T_' + name); // boton tactil
     return out;
   },
   btn(name) {
     for (const k of this.codes(name)) if (this.down.has(k)) return true;
+    if (name === 'sprint' && Touch.on && Touch.mag > 0.93) return true; // joystick a fondo = correr
     return !!(this.pad && this.pad[name]);
   },
   hit(name) {
@@ -45,6 +47,7 @@ const Input = {
     if (this.btn('up') || arrows && this.down.has('ArrowUp')) z -= 1;
     if (this.btn('down') || arrows && this.down.has('ArrowDown')) z += 1;
     if (this.pad && Math.hypot(this.pad.ax, this.pad.az) > 0.22) { x = this.pad.ax; z = this.pad.az; }
+    if (Touch.on && Touch.mag > 0.12) { x = Touch.ax; z = Touch.az; }
     const l = Math.hypot(x, z);
     if (l > 1) { x /= l; z /= l; }
     return { x, z, l: Math.min(1, l) };

@@ -1,7 +1,7 @@
 // ===== Renderizado: renderer, escena, luces y calidad grafica =====
 const QUALITY = {
-  baja: { name: 'Baja', pr: 0.75, shadow: 0, crowd: 0.25, aa: false, aniso: 2 },
-  media: { name: 'Media', pr: 1, shadow: 1024, crowd: 0.5, aa: true, aniso: 4 },
+  baja: { name: 'Baja', pr: 1, shadow: 0, crowd: 0.25, aa: false, aniso: 2 },
+  media: { name: 'Media', pr: 1.25, shadow: 1024, crowd: 0.5, aa: true, aniso: 4 },
   alta: { name: 'Alta', pr: 1.5, shadow: 2048, crowd: 0.8, aa: true, aniso: 8 },
   ultra: { name: 'Ultra', pr: 2, shadow: 4096, crowd: 1, aa: true, aniso: 16 },
 };

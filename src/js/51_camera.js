@@ -32,6 +32,7 @@ const Cam = {
       const near = clamp((Math.abs(this.fx) - 30) / 18, 0, 1);
       const fast = clamp(Math.hypot(b.vx, b.vz) / 28, 0, 1);
       fov = P.fov - near * 2.5 + fast * 3 + (b.py > 4 ? 2 : 0);
+      if (innerHeight < 520) fov *= 0.86; // en el celular, un poco mas cerca para ver bien a los jugadores
       px = clamp(this.fx * 0.86, -42, 42); py = P.h - near * 2; pz = P.d + this.fz * 0.18;
       lx = this.fx; ly = 0; lz = this.fz * P.look + 1.5;
       // penal: camara atras del que patea
