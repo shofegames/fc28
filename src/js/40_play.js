@@ -69,7 +69,13 @@ function receive(p) {
     return;
   }
   setOwner(p); touchBy(p);
-  b.vx = p.vel.x * 0.85 + rvx * 0.06; b.vz = p.vel.z * 0.85 + rvz * 0.06;
+  // primer toque orientado: el usuario la acomoda hacia donde apunta; la IA hacia adelante
+  let fx = 0, fz = 0;
+  if (G.human && G.human.p === p) { const mv = Input.move(); if (mv.l > 0.2) { fx = mv.x / mv.l * 1.8; fz = mv.z / mv.l * 1.8; } }
+  else if (!p.isGK) { fx = p.team.attackDir * 1.1; }
+  b.vx = p.vel.x * 0.85 + rvx * 0.06 + fx; b.vz = p.vel.z * 0.85 + rvz * 0.06 + fz;
+  // animacion de recepcion (amortigua con el pie)
+  if (!p.action && rel > 3) p.action = { type: 'trap', t: 0, dur: 0.3, contact: 9, fired: true, foot: Math.random() < 0.3 ? 'L' : 'R', hi: b.py > 0.5 };
   if (b.py > BALL_R + 0.05) b.vy = Math.min(0, b.vy) * 0.3;
   b.wx = b.wy = b.wz = 0; b.trajDirty = true; G.kickSeq++;
   AU.touch();
@@ -106,11 +112,29 @@ function dribble(o, h) {
 // ---- acciones ----
 const KICK_T = { shot: [0.4, 0.15], chip: [0.36, 0.14], pass: [0.28, 0.1], through: [0.3, 0.11], lob: [0.36, 0.14], cross: [0.38, 0.15], clear: [0.34, 0.13], throw: [0.62, 0.36], header: [0.5, 0.2], knock: [0.2, 0.06] };
 function startKick(p, kind, opts, quick) {
-  if (p.action && p.action.type !== 'catch') return false;
+  if (p.action && p.action.type !== 'catch' && p.action.type !== 'trap') return false;
+  opts = opts || {};
   const t = KICK_T[kind] || KICK_T.pass;
   const type = kind === 'throw' ? 'throw' : kind === 'header' ? 'header' : 'kick';
-  const contact = quick ? Math.min(0.06, t[1]) : t[1];
-  p.action = { type, kind, t: quick ? Math.max(0, t[1] - contact) : 0, dur: t[0], contact: t[1], fired: false, opts: opts || {}, foot: Math.random() < 0.18 ? 'L' : 'R', jump: 1 };
+  // hacia donde va a salir la pelota: se elige el receptor YA (asi el cuerpo se acomoda y el pase va a ese compañero)
+  let face = null;
+  if (kind !== 'knock' && kind !== 'header') {
+    const dir = opts.dir && (opts.dir.x || opts.dir.z) ? opts.dir : p.fwd();
+    if ((kind === 'pass' || kind === 'through' || kind === 'lob') && !opts.receiver && !opts.target) {
+      let rec = pickReceiver(p, dir, kind);
+      if (!rec && kind === 'pass') rec = pickReceiver(p, dir, 'pass', -0.1) || pickReceiver(p, { x: -dir.x, z: -dir.z }, 'pass', -1);
+      if (rec) opts.receiver = rec;
+    }
+    const tg = opts.target || (opts.receiver ? { x: opts.receiver.pos.x + opts.receiver.vel.x * 0.4, z: opts.receiver.pos.z + opts.receiver.vel.z * 0.4 } : null);
+    if (tg) face = Math.atan2(tg.x - p.pos.x, tg.z - p.pos.z);
+    else if (kind === 'shot' || kind === 'chip') face = Math.atan2(p.team.oppGoalX - p.pos.x, (opts.aimZ || 0) - p.pos.z);
+    else face = Math.atan2(dir.x, dir.z);
+  }
+  // si tiene que girar mucho, tarda un poquito mas en pegarle (se acomoda antes de patear)
+  const turn = face == null ? 0 : Math.abs(angWrap(face - p.facing));
+  const extra = quick ? 0 : clamp((turn - 0.3) / 12, 0, 0.13);
+  const contact = quick ? Math.min(0.06, t[1]) : t[1] + extra;
+  p.action = { type, kind, t: quick ? Math.max(0, t[1] - contact) : 0, dur: t[0] + extra, contact, fired: false, opts, foot: Math.random() < 0.18 ? 'L' : 'R', jump: 1, face };
   return true;
 }
 function actionFire(p, ac) {

@@ -8,15 +8,37 @@ function moveTo(p, x, z, mode, arrive) {
     if (r.type === 'goalkick') { const gx = r.team.ownGoalX; if (Math.abs(x - gx) < PITCH.boxX + 1 && Math.abs(z) < PITCH.boxHW + 1) x = gx + r.team.attackDir * (PITCH.boxX + 1.5); }
   }
   const dx = x - p.pos.x, dz = z - p.pos.z, d = Math.hypot(dx, dz);
+  const B = p.brain, pursuit = arrive === false;
+  p.calm = !pursuit && mode !== 'sprint';
+  // ya llego a su lugar: se queda quieto hasta que el lugar se mueva de verdad (sin pasitos ni temblores)
+  if (!pursuit && mode !== 'sprint') {
+    if (B.parked && d < 1.4) { p.want.x = 0; p.want.z = 0; p.sprint = false; return d; }
+    B.parked = d < 0.45;
+  } else B.parked = false;
   if (d < 0.25) { p.want.x = 0; p.want.z = 0; p.sprint = false; return d; }
   let sp;
   if (mode === 'sprint') sp = p.vmax;
   else if (mode === 'run') sp = p.vmax * 0.66;
   else if (mode === 'walk') sp = 2;
-  else sp = d > 14 ? p.vmax * 0.9 : d > 5 ? p.vmax * 0.62 : Math.max(1.2, d * 1.3);
-  if (arrive !== false) sp = Math.min(sp, d * 2.6 + 0.4);
+  // reubicarse: trote suave; solo pica si esta muy lejos de donde tiene que estar
+  else sp = d > 18 ? p.vmax * 0.85 : d > 8 ? p.vmax * 0.55 : Math.max(1.4, d * 0.75);
+  if (!pursuit) sp = Math.min(sp, Math.sqrt(2 * 7 * d) * 0.9 + 0.2); // frena a tiempo para no pasarse
   p.sprint = sp > p.vmax * 0.7;
-  p.want.x = dx / d * sp; p.want.z = dz / d * sp;
+  let ux = dx / d, uz = dz / d;
+  // esquivar a los que tiene adelante (en vez de chocarlos)
+  if (!pursuit && d > 1.5) {
+    let sx = 0, sz = 0;
+    for (const q of G.players) {
+      if (q === p) continue;
+      const rx = q.pos.x - p.pos.x, rz = q.pos.z - p.pos.z, rd = Math.hypot(rx, rz);
+      if (rd > 2.4 || rd < 0.01) continue;
+      const ahead = rx * ux + rz * uz; if (ahead <= 0 || ahead > d) continue;
+      const lat = rx * -uz + rz * ux, k = (2.4 - rd) / 2.4;
+      const side = lat > 0 ? -1 : 1; sx += -uz * side * k; sz += ux * side * k;
+    }
+    if (sx || sz) { ux += sx * 0.9; uz += sz * 0.9; const l = Math.hypot(ux, uz) || 1; ux /= l; uz /= l; }
+  }
+  p.want.x = ux * sp; p.want.z = uz * sp;
   return d;
 }
 function faceBall(p) { const b = G.ball; p.wantFace = Math.atan2(b.px - p.pos.x, b.pz - p.pos.z); }
@@ -159,7 +181,14 @@ function brain(p, h) {
   const dd = Math.hypot(B.tx - p.pos.x, B.tz - p.pos.z);
   if (B.hold && dd < 2.2) { p.want.x *= 0.85; p.want.z *= 0.85; p.sprint = false; faceBall(p); return; }
   B.hold = dd < 0.8;
-  const d = moveTo(p, B.tx, B.tz);
+  // ataque: los que tienen que ganar metros hacia el arco rival lo hacen con intensidad (acompañan la jugada)
+  // defensa: si quedaron atras de la pelota, vuelven rapido a su lugar
+  const ad = p.team.attackDir, ahead = (B.tx - p.pos.x) * ad, attacking = possTeam() === p.team;
+  const behindBall = (G.ball.px - p.pos.x) * ad < -6;
+  let mode;
+  if (attacking && ahead > 6) mode = ahead > 14 && p.team.form[p.slot].role !== 'DF' ? 'sprint' : 'run';
+  else if (!attacking && behindBall && dd > 8) mode = dd > 16 ? 'sprint' : 'run';
+  const d = moveTo(p, B.tx, B.tz, mode);
   if (d < 4) faceBall(p);
 }
 function idleBrain(p) {

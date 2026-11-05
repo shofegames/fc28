@@ -250,6 +250,13 @@ class Rig {
         const k = keyf(u, [[0, 0], [0.12, 1], [0.75, 1], [1, 0]]);
         T.bodyRX = -1.15 * k; T.bodyY = lerp(0.99, 0.32, k); T.hipRX = lerp(T.hipRX, -1.45, k); T.knR = lerp(T.knR, 0.1, k); T.hipLX = lerp(T.hipLX, -0.35, k); T.knL = lerp(T.knL, 1.7, k);
         T.shLX = T.shRX = 0.7 * k; T.shLZ = 0.7 * k; T.shRZ = -0.7 * k; T.elL = T.elR = -0.3; T.spX = 0.35 * k; T.hdX = 0.5 * k;
+      } else if (ac.type === 'trap') {
+        // recepcion: levanta apenas el pie (o pone el pecho) para amortiguar
+        const k = keyf(u, [[0, 0], [0.35, 1], [1, 0]]), R = ac.foot !== 'L';
+        if (ac.hi) { T.spX = lerp(T.spX, -0.18, k); T.shLZ = lerp(T.shLZ, 0.55, k); T.shRZ = lerp(T.shRZ, -0.55, k); }
+        if (R) { T.hipRX = lerp(T.hipRX, -0.5, k); T.knR = lerp(T.knR, 0.65, k); T.ftR = lerp(T.ftR, -0.35, k); T.hipRZ = lerp(T.hipRZ, -0.15, k); T.knL = lerp(T.knL, 0.3, k); }
+        else { T.hipLX = lerp(T.hipLX, -0.5, k); T.knL = lerp(T.knL, 0.65, k); T.ftL = lerp(T.ftL, -0.35, k); T.hipLZ = lerp(T.hipLZ, 0.15, k); T.knR = lerp(T.knR, 0.3, k); }
+        T.bodyY = lerp(T.bodyY, 0.95, k);
       } else if (ac.type === 'card' || ac.type === 'flag') {
         const k = keyf(u, [[0, 0], [0.15, 1], [0.85, 1], [1, 0]]);
         T.shRX = lerp(T.shRX, -3.0, k); T.shRZ = -0.08; T.elR = -0.05; T.hdX = -0.2 * k;

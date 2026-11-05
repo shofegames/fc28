@@ -115,6 +115,18 @@ class Ball {
   }
   // choque con el cuerpo de los jugadores (torso; las piernas las maneja el control de pelota)
   bodies() {
+    // pelota baja y suelta (pase o rebote): si pega en las piernas de alguien que no la pudo controlar, rebota (no las atraviesa)
+    if (this.py < 0.6 && !G.owner && Math.hypot(this.vx, this.vz) > 3) {
+      for (const p of G.players) {
+        if (p === this.ignore || p.isGK || p.controlCd > 0 && p === G.lastTouch) continue;
+        const dx = this.px - p.pos.x, dz = this.pz - p.pos.z;
+        if (dx * dx + dz * dz > 0.25) continue;
+        this.vx -= p.vel.x; this.vz -= p.vel.z;
+        const v = capsuleHit(this, p.pos.x, 0.05, p.pos.z, p.pos.x, 0.55, p.pos.z, 0.15, 0.25);
+        this.vx += p.vel.x; this.vz += p.vel.z;
+        if (v > 0.5) { this.vx *= 0.75; this.vz *= 0.75; touchBy(p); this.trajDirty = true; G.kickSeq++; AU.touch(); if (G.passInfo && G.passInfo.to !== p) G.passInfo = null; }
+      }
+    }
     if (this.py < 0.45 || this.py > 2.5) return;
     for (const p of G.players) {
       if (p === this.ignore || p.noBody || p.isGK) continue;

@@ -326,7 +326,7 @@ body.touchmode #power{bottom:auto;top:62px}
       <button class="hbtn" id="bTour" disabled><b>TORNEOS <em class="soon">PRONTO</em></b><i>Copas y ligas con los clubes</i></button>
       <button class="hbtn" id="bCfg"><b>CONFIGURACIÓN</b><i>Gráficos, sonido y controles</i></button>
     </nav>
-    <div class="hfoot">© 2026 shofegames · FC 28 v6</div>
+    <div class="hfoot">© 2026 shofegames · FC 28 v7</div>
   </div>
   <div class="hcard" id="hcard"></div>
 </section>
@@ -1639,6 +1639,18 @@ class Ball {
   }
   // choque con el cuerpo de los jugadores (torso; las piernas las maneja el control de pelota)
   bodies() {
+    // pelota baja y suelta (pase o rebote): si pega en las piernas de alguien que no la pudo controlar, rebota (no las atraviesa)
+    if (this.py < 0.6 && !G.owner && Math.hypot(this.vx, this.vz) > 3) {
+      for (const p of G.players) {
+        if (p === this.ignore || p.isGK || p.controlCd > 0 && p === G.lastTouch) continue;
+        const dx = this.px - p.pos.x, dz = this.pz - p.pos.z;
+        if (dx * dx + dz * dz > 0.25) continue;
+        this.vx -= p.vel.x; this.vz -= p.vel.z;
+        const v = capsuleHit(this, p.pos.x, 0.05, p.pos.z, p.pos.x, 0.55, p.pos.z, 0.15, 0.25);
+        this.vx += p.vel.x; this.vz += p.vel.z;
+        if (v > 0.5) { this.vx *= 0.75; this.vz *= 0.75; touchBy(p); this.trajDirty = true; G.kickSeq++; AU.touch(); if (G.passInfo && G.passInfo.to !== p) G.passInfo = null; }
+      }
+    }
     if (this.py < 0.45 || this.py > 2.5) return;
     for (const p of G.players) {
       if (p === this.ignore || p.noBody || p.isGK) continue;
@@ -1970,6 +1982,13 @@ class Rig {
         const k = keyf(u, [[0, 0], [0.12, 1], [0.75, 1], [1, 0]]);
         T.bodyRX = -1.15 * k; T.bodyY = lerp(0.99, 0.32, k); T.hipRX = lerp(T.hipRX, -1.45, k); T.knR = lerp(T.knR, 0.1, k); T.hipLX = lerp(T.hipLX, -0.35, k); T.knL = lerp(T.knL, 1.7, k);
         T.shLX = T.shRX = 0.7 * k; T.shLZ = 0.7 * k; T.shRZ = -0.7 * k; T.elL = T.elR = -0.3; T.spX = 0.35 * k; T.hdX = 0.5 * k;
+      } else if (ac.type === 'trap') {
+        // recepcion: levanta apenas el pie (o pone el pecho) para amortiguar
+        const k = keyf(u, [[0, 0], [0.35, 1], [1, 0]]), R = ac.foot !== 'L';
+        if (ac.hi) { T.spX = lerp(T.spX, -0.18, k); T.shLZ = lerp(T.shLZ, 0.55, k); T.shRZ = lerp(T.shRZ, -0.55, k); }
+        if (R) { T.hipRX = lerp(T.hipRX, -0.5, k); T.knR = lerp(T.knR, 0.65, k); T.ftR = lerp(T.ftR, -0.35, k); T.hipRZ = lerp(T.hipRZ, -0.15, k); T.knL = lerp(T.knL, 0.3, k); }
+        else { T.hipLX = lerp(T.hipLX, -0.5, k); T.knL = lerp(T.knL, 0.65, k); T.ftL = lerp(T.ftL, -0.35, k); T.hipLZ = lerp(T.hipLZ, 0.15, k); T.knR = lerp(T.knR, 0.3, k); }
+        T.bodyY = lerp(T.bodyY, 0.95, k);
       } else if (ac.type === 'card' || ac.type === 'flag') {
         const k = keyf(u, [[0, 0], [0.15, 1], [0.85, 1], [1, 0]]);
         T.shRX = lerp(T.shRX, -3.0, k); T.shRZ = -0.08; T.elR = -0.05; T.hdX = -0.2 * k;
@@ -2046,6 +2065,7 @@ class Player {
   }
   update(h) {
     this.controlCd -= h; this.tackleCd -= h;
+    if (this.want.x === 0 && this.want.z === 0 && this.calm === undefined) this.calm = true;
     let tx = this.want.x, tz = this.want.z;
     const ac = this.action;
     let free = false; // movimiento libre (barrida/estirada): sin aceleracion controlada
@@ -2066,32 +2086,46 @@ class Player {
     } else {
       const wl = Math.hypot(tx, tz), cap = this.speedCap();
       if (wl > cap) { tx *= cap / wl; tz *= cap / wl; }
-      const sp0 = Math.hypot(this.vel.x, this.vel.z);
-      const dvx = tx - this.vel.x, dvz = tz - this.vel.z, dl = Math.hypot(dvx, dvz);
-      // acelerar cuesta mas que frenar; girar a toda velocidad cuesta un poco mas
-      const speeding = wl > sp0;
-      // el jugador que maneja el usuario responde mas rapido (como en los juegos de futbol)
-      const hb = G.human && G.human.p === this ? 1.45 : 1;
-      const maxA = (speeding ? 8.5 + this.a.pac / 100 * 5 : 17) * hb * h;
-      if (dl > maxA) { this.vel.x += dvx / dl * maxA; this.vel.z += dvz / dl * maxA; } else { this.vel.x = tx; this.vel.z = tz; }
-      this.accel = speeding && dl > maxA ? 1 : 0;
+      // Movimiento con fisica de jugador real:
+      //  - arranque explosivo que se va apagando cerca de la velocidad maxima
+      //  - frenada fuerte
+      //  - giro limitado por la velocidad (a toda carrera se abre; si el cambio es muy grande, primero frena y despues sale)
+      const human = G.human && G.human.p === this, hb = human ? 1.22 : 1;
+      const pac = this.a.pac / 100, vx = this.vel.x, vz = this.vel.z, sp0 = Math.hypot(vx, vz);
+      const aFwd = ((4.6 + 3 * pac) * (1 - 0.72 * clamp(sp0 / this.vmax, 0, 1)) + 0.8) * hb * (this.calm && !human ? 0.7 : 1);
+      // reubicandose tranquilo (calm) frena y arranca suave; persiguiendo o con el usuario, a fondo
+      const calm = this.calm && !human, aBrake = (calm ? 5.5 : 10.5) * hb, aLat = Math.max(4.6, 11 - 0.8 * sp0) * hb * (G.owner === this ? 0.92 : 1) * (calm ? 0.8 : 1);
+      if (sp0 < 0.8) {
+        const dvx = tx - vx, dvz = tz - vz, dl = Math.hypot(dvx, dvz), m = (wl > sp0 ? aFwd : aBrake) * h;
+        if (dl > m) { this.vel.x += dvx / dl * m; this.vel.z += dvz / dl * m; } else { this.vel.x = tx; this.vel.z = tz; }
+      } else {
+        const ux = vx / sp0, uz = vz / sp0, nx = -uz, nz = ux;
+        let tLong = tx * ux + tz * uz, tLat = tx * nx + tz * nz;
+        // cambio de direccion muy grande: clava los pies y frena antes de salir para el otro lado
+        if (wl > 0.5 && tLong / wl < -0.42) { tLong = 0; tLat = 0; }
+        const dLong = clamp(tLong - sp0, -aBrake * h, aFwd * h), dLat = clamp(tLat, -aLat * h, aLat * h);
+        const ns = Math.max(0, sp0 + dLong);
+        this.vel.x = ux * ns + nx * dLat; this.vel.z = uz * ns + nz * dLat;
+      }
+      this.accel = Math.hypot(this.vel.x, this.vel.z) > sp0 + 0.01 ? 1 : 0;
     }
     this.pos.x += this.vel.x * h; this.pos.z += this.vel.z * h;
-    // orientacion del cuerpo
+    // orientacion del cuerpo: mira hacia donde corre; solo de a poco (o retrocediendo despacio) mira a la pelota
     const sp = Math.hypot(this.vel.x, this.vel.z), spPrev = this._sp || 0; this._sp = sp;
     this.accelV = damp(this.accelV || 0, (sp - spPrev) / h, 8, h);
     const moveDir = Math.atan2(this.vel.x, this.vel.z);
     let tf = this.facing;
     const busy = ac && (ac.type === 'slide' || ac.type === 'dive');
-    if (this.wantFace != null && !busy && !(sp > 3.6 && Math.abs(angWrap(this.wantFace - moveDir)) > 1.6)) tf = this.wantFace; // no corre para atras mirando la pelota
-    else if (sp > 1.0 && !(ac && ac.type === 'dive')) tf = moveDir;
-    const human = G.human && G.human.p === this;
-    const rate = (ac && ac.type === 'kick') ? 3 : human ? (sp < 3 ? 16 : 10) : sp < 2.5 ? 10 : 7;
+    if (this.wantFace != null && !busy && (sp < 3.2 || Math.abs(angWrap(this.wantFace - moveDir)) < 1.2)) tf = this.wantFace;
+    else if (sp > 0.8 && !(ac && ac.type === 'dive')) tf = moveDir;
+    // al patear, el cuerpo se acomoda hacia donde va la pelota
+    if (ac && ac.face != null && !ac.fired) tf = ac.face;
+    const human2 = G.human && G.human.p === this;
+    const rate = ac && ac.face != null && !ac.fired ? 13 : (ac && ac.type === 'kick') ? 3 : human2 ? (sp < 3 ? 14 : 9) : sp < 2.5 ? 9 : 6;
     const df = angWrap(tf - this.facing), st = clamp(df, -rate * h, rate * h);
     this.facing = angWrap(this.facing + st); this.turnRate = damp(this.turnRate, st / h, 10, h);
     // la zancada es mas corta de costado y para atras
-    const vf = sp > 0.05 ? Math.abs(Math.cos(moveDir - this.facing)) : 1;
-    // energia
+    const vf = sp > 0.05 ? Math.abs(Math.cos(moveDir - this.facing)) : 1;    // energia
     // el cansancio va en tiempo de partido: con tiempos cortos se cansan mas rapido por segundo real
     const fk = G.match ? clamp(270 / G.match.halfLen, 0.4, 3) : 1;
     if (this.sprint && sp > 5) this.stamina = Math.max(0, this.stamina - h * 0.03 * fk * (1.45 - this.a.phy / 100));
@@ -2230,7 +2264,13 @@ function receive(p) {
     return;
   }
   setOwner(p); touchBy(p);
-  b.vx = p.vel.x * 0.85 + rvx * 0.06; b.vz = p.vel.z * 0.85 + rvz * 0.06;
+  // primer toque orientado: el usuario la acomoda hacia donde apunta; la IA hacia adelante
+  let fx = 0, fz = 0;
+  if (G.human && G.human.p === p) { const mv = Input.move(); if (mv.l > 0.2) { fx = mv.x / mv.l * 1.8; fz = mv.z / mv.l * 1.8; } }
+  else if (!p.isGK) { fx = p.team.attackDir * 1.1; }
+  b.vx = p.vel.x * 0.85 + rvx * 0.06 + fx; b.vz = p.vel.z * 0.85 + rvz * 0.06 + fz;
+  // animacion de recepcion (amortigua con el pie)
+  if (!p.action && rel > 3) p.action = { type: 'trap', t: 0, dur: 0.3, contact: 9, fired: true, foot: Math.random() < 0.3 ? 'L' : 'R', hi: b.py > 0.5 };
   if (b.py > BALL_R + 0.05) b.vy = Math.min(0, b.vy) * 0.3;
   b.wx = b.wy = b.wz = 0; b.trajDirty = true; G.kickSeq++;
   AU.touch();
@@ -2267,11 +2307,29 @@ function dribble(o, h) {
 // ---- acciones ----
 const KICK_T = { shot: [0.4, 0.15], chip: [0.36, 0.14], pass: [0.28, 0.1], through: [0.3, 0.11], lob: [0.36, 0.14], cross: [0.38, 0.15], clear: [0.34, 0.13], throw: [0.62, 0.36], header: [0.5, 0.2], knock: [0.2, 0.06] };
 function startKick(p, kind, opts, quick) {
-  if (p.action && p.action.type !== 'catch') return false;
+  if (p.action && p.action.type !== 'catch' && p.action.type !== 'trap') return false;
+  opts = opts || {};
   const t = KICK_T[kind] || KICK_T.pass;
   const type = kind === 'throw' ? 'throw' : kind === 'header' ? 'header' : 'kick';
-  const contact = quick ? Math.min(0.06, t[1]) : t[1];
-  p.action = { type, kind, t: quick ? Math.max(0, t[1] - contact) : 0, dur: t[0], contact: t[1], fired: false, opts: opts || {}, foot: Math.random() < 0.18 ? 'L' : 'R', jump: 1 };
+  // hacia donde va a salir la pelota: se elige el receptor YA (asi el cuerpo se acomoda y el pase va a ese compañero)
+  let face = null;
+  if (kind !== 'knock' && kind !== 'header') {
+    const dir = opts.dir && (opts.dir.x || opts.dir.z) ? opts.dir : p.fwd();
+    if ((kind === 'pass' || kind === 'through' || kind === 'lob') && !opts.receiver && !opts.target) {
+      let rec = pickReceiver(p, dir, kind);
+      if (!rec && kind === 'pass') rec = pickReceiver(p, dir, 'pass', -0.1) || pickReceiver(p, { x: -dir.x, z: -dir.z }, 'pass', -1);
+      if (rec) opts.receiver = rec;
+    }
+    const tg = opts.target || (opts.receiver ? { x: opts.receiver.pos.x + opts.receiver.vel.x * 0.4, z: opts.receiver.pos.z + opts.receiver.vel.z * 0.4 } : null);
+    if (tg) face = Math.atan2(tg.x - p.pos.x, tg.z - p.pos.z);
+    else if (kind === 'shot' || kind === 'chip') face = Math.atan2(p.team.oppGoalX - p.pos.x, (opts.aimZ || 0) - p.pos.z);
+    else face = Math.atan2(dir.x, dir.z);
+  }
+  // si tiene que girar mucho, tarda un poquito mas en pegarle (se acomoda antes de patear)
+  const turn = face == null ? 0 : Math.abs(angWrap(face - p.facing));
+  const extra = quick ? 0 : clamp((turn - 0.3) / 12, 0, 0.13);
+  const contact = quick ? Math.min(0.06, t[1]) : t[1] + extra;
+  p.action = { type, kind, t: quick ? Math.max(0, t[1] - contact) : 0, dur: t[0] + extra, contact, fired: false, opts, foot: Math.random() < 0.18 ? 'L' : 'R', jump: 1, face };
   return true;
 }
 function actionFire(p, ac) {
@@ -2511,15 +2569,37 @@ function moveTo(p, x, z, mode, arrive) {
     if (r.type === 'goalkick') { const gx = r.team.ownGoalX; if (Math.abs(x - gx) < PITCH.boxX + 1 && Math.abs(z) < PITCH.boxHW + 1) x = gx + r.team.attackDir * (PITCH.boxX + 1.5); }
   }
   const dx = x - p.pos.x, dz = z - p.pos.z, d = Math.hypot(dx, dz);
+  const B = p.brain, pursuit = arrive === false;
+  p.calm = !pursuit && mode !== 'sprint';
+  // ya llego a su lugar: se queda quieto hasta que el lugar se mueva de verdad (sin pasitos ni temblores)
+  if (!pursuit && mode !== 'sprint') {
+    if (B.parked && d < 1.4) { p.want.x = 0; p.want.z = 0; p.sprint = false; return d; }
+    B.parked = d < 0.45;
+  } else B.parked = false;
   if (d < 0.25) { p.want.x = 0; p.want.z = 0; p.sprint = false; return d; }
   let sp;
   if (mode === 'sprint') sp = p.vmax;
   else if (mode === 'run') sp = p.vmax * 0.66;
   else if (mode === 'walk') sp = 2;
-  else sp = d > 14 ? p.vmax * 0.9 : d > 5 ? p.vmax * 0.62 : Math.max(1.2, d * 1.3);
-  if (arrive !== false) sp = Math.min(sp, d * 2.6 + 0.4);
+  // reubicarse: trote suave; solo pica si esta muy lejos de donde tiene que estar
+  else sp = d > 18 ? p.vmax * 0.85 : d > 8 ? p.vmax * 0.55 : Math.max(1.4, d * 0.75);
+  if (!pursuit) sp = Math.min(sp, Math.sqrt(2 * 7 * d) * 0.9 + 0.2); // frena a tiempo para no pasarse
   p.sprint = sp > p.vmax * 0.7;
-  p.want.x = dx / d * sp; p.want.z = dz / d * sp;
+  let ux = dx / d, uz = dz / d;
+  // esquivar a los que tiene adelante (en vez de chocarlos)
+  if (!pursuit && d > 1.5) {
+    let sx = 0, sz = 0;
+    for (const q of G.players) {
+      if (q === p) continue;
+      const rx = q.pos.x - p.pos.x, rz = q.pos.z - p.pos.z, rd = Math.hypot(rx, rz);
+      if (rd > 2.4 || rd < 0.01) continue;
+      const ahead = rx * ux + rz * uz; if (ahead <= 0 || ahead > d) continue;
+      const lat = rx * -uz + rz * ux, k = (2.4 - rd) / 2.4;
+      const side = lat > 0 ? -1 : 1; sx += -uz * side * k; sz += ux * side * k;
+    }
+    if (sx || sz) { ux += sx * 0.9; uz += sz * 0.9; const l = Math.hypot(ux, uz) || 1; ux /= l; uz /= l; }
+  }
+  p.want.x = ux * sp; p.want.z = uz * sp;
   return d;
 }
 function faceBall(p) { const b = G.ball; p.wantFace = Math.atan2(b.px - p.pos.x, b.pz - p.pos.z); }
@@ -2662,7 +2742,14 @@ function brain(p, h) {
   const dd = Math.hypot(B.tx - p.pos.x, B.tz - p.pos.z);
   if (B.hold && dd < 2.2) { p.want.x *= 0.85; p.want.z *= 0.85; p.sprint = false; faceBall(p); return; }
   B.hold = dd < 0.8;
-  const d = moveTo(p, B.tx, B.tz);
+  // ataque: los que tienen que ganar metros hacia el arco rival lo hacen con intensidad (acompañan la jugada)
+  // defensa: si quedaron atras de la pelota, vuelven rapido a su lugar
+  const ad = p.team.attackDir, ahead = (B.tx - p.pos.x) * ad, attacking = possTeam() === p.team;
+  const behindBall = (G.ball.px - p.pos.x) * ad < -6;
+  let mode;
+  if (attacking && ahead > 6) mode = ahead > 14 && p.team.form[p.slot].role !== 'DF' ? 'sprint' : 'run';
+  else if (!attacking && behindBall && dd > 8) mode = dd > 16 ? 'sprint' : 'run';
+  const d = moveTo(p, B.tx, B.tz, mode);
   if (d < 4) faceBall(p);
 }
 function idleBrain(p) {
