@@ -13,7 +13,11 @@ while ($l.IsListening) {
   if ($path -eq '') { $path = 'index.html' }
   $file = Join-Path $root $path
   try {
-    if (Test-Path $file -PathType Leaf) {
+    # POST /save/nombre.jpg con un dataURL en el cuerpo: guarda una captura en la carpeta servida (solo para pruebas)
+    if ($ctx.Request.HttpMethod -eq 'POST' -and $path -match '^save/([\w\-]+\.(jpg|png))$') {
+      $body = (New-Object IO.StreamReader($ctx.Request.InputStream)).ReadToEnd()
+      [IO.File]::WriteAllBytes((Join-Path $root $Matches[1]), [Convert]::FromBase64String($body.Substring($body.IndexOf(',') + 1)))
+    } elseif (Test-Path $file -PathType Leaf) {
       $bytes = [IO.File]::ReadAllBytes($file)
       $ext = [IO.Path]::GetExtension($file).ToLower()
       $ctx.Response.ContentType = $(if ($types[$ext]) { $types[$ext] } else { 'application/octet-stream' })
