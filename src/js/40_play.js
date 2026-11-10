@@ -322,7 +322,7 @@ function computeShot(p, o) {
   const fd = (f.x * (gx - sx) + f.z * (aimZ - sz)) / D;
   const dd = teamDiff(team);
   const sac = p.action || {}, run = Math.hypot(p.vel.x, p.vel.z);
-  let err = (0.0118 + (1 - sk) * 0.057) * (1 + pr * 0.7) * (fd < 0.3 ? 1.8 : 1) * (1 + Math.max(0, pw - 0.8) * 2.5) * (finesse ? 0.75 : 1) * (team.human ? 1 : dd.shotErr) * (1 + D / 60)
+  let err = (0.0102 + (1 - sk) * 0.049) * (1 + pr * 0.7) * (fd < 0.3 ? 1.8 : 1) * (1 + Math.max(0, pw - 0.8) * 2.5) * (finesse ? 0.75 : 1) * (team.human ? 1 : dd.shotErr) * (1 + D / 60)
     * (sac.weak ? 1.4 : 1) * (run > 6 ? 1.25 : 1) * (1 + (sac.ftRel || 0) / 30);
   if (b.py > 0.4) err *= 1.35;
   const ang = Math.atan2(aimZ - sz, gx - sx) + randn() * err;
