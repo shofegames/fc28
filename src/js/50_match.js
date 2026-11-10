@@ -250,7 +250,7 @@ class Match {
     if (r.type !== 'throw') { b.px = r.spot.x; b.pz = r.spot.z; b.py = BALL_R; b.vx = b.vy = b.vz = 0; }
     G.owner = T;
     const humanTakes = r.team.human && G.human && !T.isGK && !this.attract;
-    if (!humanTakes && r.readyT > (r.kickoff ? 0.8 : r.type === 'penalty' ? 1.6 : 1.1) && !T.action) this.aiTake(r);
+    if (!humanTakes && r.readyT > (r.kickoff ? 0.8 : r.type === 'penalty' ? 1.6 : r.type === 'corner' ? 2.4 : 1.1) && !T.action) this.aiTake(r);
   }
   aiTake(r) {
     const T = r.taker, team = r.team, ad = team.attackDir, gx = team.oppGoalX;
@@ -260,7 +260,9 @@ class Match {
       for (const m of team.players) { if (m === T || m.isGK) continue; const d = Math.hypot(m.pos.x - T.pos.x, m.pos.z - T.pos.z); if (d > 24) continue; let open = 8; for (const o of team.opp.players) open = Math.min(open, Math.hypot(o.pos.x - m.pos.x, o.pos.z - m.pos.z)); const s = open * 0.4 - d * 0.05 + (m.pos.x - T.pos.x) * ad * 0.03; if (s > bs) { bs = s; best = m; } }
       startKick(T, 'throw', { receiver: best, power: 0.5 }); return;
     }
-    if (r.type === 'corner') { aiCross(T); return; }
+    // a veces corner corto, con el que se acerca
+    const near = (rad) => { let m = null, md = rad; for (const q of team.players) { if (q === T || q.isGK) continue; const d = Math.hypot(q.pos.x - T.pos.x, q.pos.z - T.pos.z); if (d < md && nearestOpp(q).d > 3) { md = d; m = q; } } return m; };
+    if (r.type === 'corner') { const sc = Math.random() < 0.18 ? near(14) : null; if (sc) startKick(T, 'pass', { receiver: sc, power: 0.35 }); else aiCross(T); return; }
     if (r.type === 'goalkick') { keeperDistribute(T); return; }
     if (r.type === 'penalty') { startKick(T, 'shot', { aimZ: (Math.random() < 0.5 ? -1 : 1) * rand(1.3, 3.1), power: rand(0.5, 0.82), finesse: false }); return; }
     if (r.type === 'freekick') {
@@ -269,7 +271,7 @@ class Match {
         const side = r.wall ? Math.sign(r.spot.z) || 1 : (Math.random() < 0.5 ? -1 : 1); // al palo que no tapa la barrera
         startKick(T, 'shot', { aimZ: side * rand(1.8, 3.1), power: rand(0.35, 0.7), finesse: Math.random() < 0.75 }); return;
       }
-      if (r.spot.x * ad > 25) { aiCross(T); return; }
+      if (r.spot.x * ad > 25) { const sc = Math.random() < 0.25 ? near(12) : null; if (sc) startKick(T, 'pass', { receiver: sc, power: 0.35 }); else aiCross(T); return; } // a veces jugada corta
       const bp = bestPass(T, 5);
       if (bp) startKick(T, bp.kind, { receiver: bp.m, power: bp.power }); else startKick(T, 'lob', { dir: { x: ad, z: 0 }, power: 0.7 });
     }

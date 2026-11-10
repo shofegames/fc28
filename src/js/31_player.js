@@ -55,7 +55,8 @@ class Player {
       //  - giro limitado por la velocidad (a toda carrera se abre; si el cambio es muy grande, primero frena y despues sale)
       const human = G.human && G.human.p === this, hb = human ? 1.22 : 1;
       const pac = this.a.pac / 100, vx = this.vel.x, vz = this.vel.z, sp0 = Math.hypot(vx, vz);
-      const aFwd = ((4.6 + 3 * pac) * (1 - 0.72 * clamp(sp0 / this.vmax, 0, 1)) + 0.8) * hb * (this.calm && !human ? 0.7 : 1);
+      const tired = 0.8 + 0.2 * Math.min(1, this.stamina * 1.5); // cansado: arranca mas lento
+      const aFwd = ((4.6 + 3 * pac) * (1 - 0.72 * clamp(sp0 / this.vmax, 0, 1)) + 0.8) * hb * tired * (this.calm && !human ? 0.7 : 1);
       // reubicandose tranquilo (calm) frena y arranca suave; persiguiendo o con el usuario, a fondo
       const calm = this.calm && !human, aBrake = (calm ? 5.5 : 10.5) * hb, aLat = Math.max(4.6, 11 - 0.8 * sp0) * hb * (G.owner === this ? 0.92 : 1) * (calm ? 0.8 : 1);
       if (sp0 < 0.8) {

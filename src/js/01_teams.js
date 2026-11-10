@@ -133,7 +133,15 @@ function buildRoster(club) {
       height: role === 'GK' ? 1.86 + R() * 0.1 : 1.70 + R() * 0.18, build: 0.92 + R() * 0.18, boots: pick(BOOTS), beard: R() < 0.3
     };
   });
-  for (const r of out) r.foot = hashStr(r.name) % 5 === 0 ? 'L' : 'R'; // 1 de cada 5 es zurdo
+  for (const r of out) {
+    const h = hashStr(r.name);
+    r.foot = h % 5 === 0 ? 'L' : 'R'; // 1 de cada 5 es zurdo
+    // personalidad: que no todos jueguen igual
+    const a = r.attrs, field = r.role !== 'GK';
+    r.dribbler = field && a.dri >= a.pas + 3;               // prefiere encarar
+    r.passer = field && !r.dribbler && a.pas >= 60;          // prefiere tocar
+    r.longShot = field && r.role !== 'DF' && a.sho >= 68 && (h >> 3) % 3 === 0; // se anima a patear de lejos
+  }
   club._roster = out;
   return out;
 }

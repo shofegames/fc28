@@ -285,7 +285,7 @@ function computePass(p, kind, o) {
   // pierna mala, de primera con la pelota viniendo rapido y distancia
   const ac = p.action || {}, turn = ac.turn || Math.acos(clamp(facing, -1, 1));
   const bodyK = turn > 2.3 ? 1.1 : 1 + 0.8 * Math.sin(Math.min(turn, Math.PI / 2));
-  let err = (0.012 + (1 - skill) * 0.07) * (1 + pr * 0.9) * bodyK * (ac.weak ? 1.35 : 1) * (1 + (ac.ftRel || 0) / 25) * (lob ? 1.2 : 1) * (team.human ? 0.7 : dd.passErr) * (1 + D / 80);
+  let err = (0.012 + (1 - skill) * 0.07) * (1 + pr * 0.9) * bodyK * (ac.weak ? 1.35 : 1) * (1 + (ac.ftRel || 0) / 25) * (lob ? 1.2 : 1) * (team.human ? 0.7 : dd.passErr) * (1 + D / 80) * (1 + (1 - p.stamina) * 0.45); // cansado: mas errores
   if (G.mode === 'menu') err *= 1.1;
   const ang = Math.atan2(tz - sz, tx - sx) + randn() * err;
   const pe = 1 + randn() * err * 0.8;
@@ -323,7 +323,8 @@ function computeShot(p, o) {
   const dd = teamDiff(team);
   const sac = p.action || {}, run = Math.hypot(p.vel.x, p.vel.z);
   let err = (0.0102 + (1 - sk) * 0.049) * (1 + pr * 0.7) * (fd < 0.3 ? 1.8 : 1) * (1 + Math.max(0, pw - 0.8) * 2.5) * (finesse ? 0.75 : 1) * (team.human ? 1 : dd.shotErr) * (1 + D / 60)
-    * (sac.weak ? 1.4 : 1) * (run > 6 ? 1.25 : 1) * (1 + (sac.ftRel || 0) / 30);
+    * (sac.weak ? 1.4 : 1) * (run > 6 ? 1.25 : 1) * (1 + (sac.ftRel || 0) / 30) * (1 + (1 - p.stamina) * 0.45)
+    * (1 + Math.max(0, D - 16) / 13); // de lejos cuesta mucho mas embocarla al angulo
   if (b.py > 0.4) err *= 1.35;
   const ang = Math.atan2(aimZ - sz, gx - sx) + randn() * err;
   ty += randn() * err * D * 0.35 + (pw > 0.88 ? Math.random() * (pw - 0.88) * 9 : 0);

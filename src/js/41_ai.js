@@ -65,6 +65,10 @@ function assignRoles() {
         if (s < bs) { ss = bs; second = best; bs = s; best = p; } else if (s < ss) { ss = s; second = p; }
       }
       t.presser = best; t.cover = ss < 22 ? second : null;
+      // señales para presionar en grupo: de espaldas, mal control (pelota separada del pie) o cerca de la banda
+      const back = o.fwd().x * o.team.attackDir < -0.3, loose = Math.hypot(b.px - o.pos.x, b.pz - o.pos.z) > 0.9 || o.touchHold > G.time;
+      t.pressTrig = back || loose || Math.abs(o.pos.z) > 24;
+      t.doubleTeam = Math.abs(o.pos.z) > 24 || loose;
       // presion tras perdida: los primeros segundos despues de perderla, el segundo tambien va a apretar
       t.counterPress = t.hadBallT && G.time - t.hadBallT < 2.5 && (o.pos.x * t.attackDir) > -10;
     } else {
@@ -131,7 +135,7 @@ function formationTarget(p) {
       // desmarque: cuando el compañero levanta la cabeza, pica en diagonal sobre la linea (habilitado)
       p.brain.runT -= DT;
       const o = G.owner, canFeed = o && o.team === team && o !== p && nearestOpp(o).d > 3 && o.fwd().x * ad > 0.2;
-      if (p.brain.runT <= 0) { p.brain.run = canFeed && Math.random() < 0.6 ? 1.6 : 0; p.brain.runT = rand(2, 5); p.brain.runOff = Math.random() < 0.15 ? 1.0 : -0.4; }
+      if (p.brain.runT <= 0) { p.brain.run = canFeed && Math.random() < 0.45 ? 1.4 : 0; p.brain.runT = rand(2, 5); p.brain.runOff = Math.random() < 0.06 ? 0.8 : -0.9; }
       if (p.brain.run > 0 && o && o !== p) { p.brain.run -= DT; x = off + (p.brain.runOff || -0.4); z = lerp(z, bz * 0.3, 0.4); }
       else x = Math.min(x, off - 0.6);
     }
@@ -171,8 +175,37 @@ function formationTarget(p) {
     if (!B.sup || B.supT <= 0) { B.sup = team.support.includes(p) ? supportSpot(p, G.owner) : spaceNear(p, G.owner, wx, wz); B.supT = rand(0.45, 0.8); if (Math.random() < 0.1) p.askT = G.time + 0.9; } // a veces levanta la mano para pedirla
     const k = team.support.includes(p) ? 0.8 : 0.65;
     wx = lerp(wx, B.sup.x, k); wz = lerp(wz, B.sup.z, k);
+    // pelota abierta en el ultimo tercio: llegada al area para el centro (primer palo, segundo palo, punto penal, medialuna)
+    const c = G.owner;
+    if (bx > 14 && Math.abs(c.pos.z) > 12 && !team.support.slice(0, 1).includes(p)) {
+      // se paran en la linea (habilitados) frente a su lugar; cuando sale el centro, atacan el area (ver brain)
+      const spot = boxSpot(p, c), lim = Math.max(sh.off, c.pos.x * ad) - 0.4;
+      if (spot) { wx = Math.min(spot.x, lim) * ad; wz = spot.z; }
+    }
+  }
+  // corner o tiro libre cerca del area a favor: cada uno a su lugar apenas se cobra (en el corner no hay offside)
+  const rs = G.match && G.match.restart;
+  if (rs && rs.team === team && rs.taker !== p && (rs.type === 'corner' || (rs.type === 'freekick' && rs.spot.x * ad > 25 && !rs.wall))) {
+    const spot = boxSpot(p, { pos: { x: rs.spot.x, z: rs.spot.z } });
+    if (spot) { const lim = rs.type === 'corner' ? 99 : (sh.off || 40) - 0.4; wx = Math.min(spot.x, lim) * ad; wz = spot.z; }
   }
   return { x: wx, z: wz };
+}
+// a donde va cada uno cuando hay un centro desde la banda (x relativo al ataque): primer palo, segundo palo, punto penal, medialuna
+function boxSpot(p, c) {
+  const team = p.team, side = Math.sign(c.pos.z) || 1;
+  const fws = team.players.filter(m => team.form[m.slot].role === 'FW' && m !== c);
+  const cms = team.players.filter(m => team.form[m.slot].role === 'MF' && Math.abs(team.form[m.slot].z) <= 0.55 && m !== c);
+  const iF = fws.indexOf(p), iM = cms.indexOf(p), two = fws.length > 1;
+  // en los corners suben los dos centrales (los mas altos): al medio del area y al segundo palo
+  const r = G.match && G.match.restart;
+  if (r && r.type === 'corner' && r.team === team && team.form[p.slot].role === 'DF') {
+    const cbs = team.players.filter(m => team.form[m.slot].role === 'DF' && Math.abs(team.form[m.slot].z) < 0.4).sort((a, b) => b.info.height - a.info.height);
+    const iC = cbs.indexOf(p);
+    if (iC === 0) return { x: 44.5, z: side * 0.5 };
+    if (iC === 1) return { x: 43, z: -side * 6 };
+  }
+  return iF === 0 ? { x: 46.5, z: side * 2.5 } : iF === 1 ? { x: 45.5, z: -side * 4 } : iM === 0 ? { x: two ? 41.5 : 45.5, z: -side * (two ? 0.5 : 4) } : iM === 1 ? { x: 36, z: -side * 2 } : null;
 }
 // lugar libre cerca de (x,z): que no lo corten si le pasan y que no quede en offside
 function spaceNear(p, c, x, z) {
@@ -185,7 +218,9 @@ function spaceNear(p, c, x, z) {
     if (px * ad > off - 0.4 && !(p.brain.run > 0)) px = (off - 0.4) * ad;
     let open = 8; for (const o of p.team.opp.players) open = Math.min(open, Math.hypot(o.pos.x - px, o.pos.z - pz));
     const risk = passRisk(c, px, pz, false, null);
-    const s = open / 8 * 0.6 - risk * 1.2 + (px - c.pos.x) * ad * 0.01 - r * 0.03;
+    let s = open / 8 * 0.6 - risk * 1.2 + (px - c.pos.x) * ad * 0.01 - r * 0.03;
+    // no amontonarse: lejos de donde estan (o van) los compañeros, asi se forman triangulos y no dos en la misma linea
+    for (const m of p.team.players) { if (m === p || m.isGK || m === c) continue; const q = m.brain.sup || m.pos, dq = Math.hypot(q.x - px, q.z - pz); if (dq < 7) s -= (7 - dq) / 7 * 0.5; }
     if (s > bs) { bs = s; best = { x: px, z: pz }; }
   }
   return best;
@@ -236,12 +271,18 @@ function brain(p, h) {
   if (o === p) { carrierAI(p, h); return; }
   const pi = G.passInfo;
   if (!o && pi && pi.to === p && G.time - pi.t < 4) { chase(p, true); return; }
+  // centro en el aire: los que llegan al area atacan su lugar (el offside ya se juzgo al patear)
+  if (!o && pi && pi.kind === 'cross' && pi.from.team === team && pi.from !== p && G.time - pi.t < 1.8) {
+    const sp = boxSpot(p, pi.from);
+    if (sp) { const ad = team.attackDir; moveTo(p, sp.x * ad, sp.z, 'sprint', false); faceBall(p); if (Math.hypot(G.ball.px - p.pos.x, G.ball.pz - p.pos.z) < 3.5) chase(p, true); return; }
+  }
   // despues de tirar la pared, pica hacia adelante para recibir la devolucion
   if (p.brain.wall && G.time - p.brain.wall.t < 2.2 && possTeam() === team) { moveTo(p, p.pos.x + team.attackDir * 6, p.pos.z * 0.95, 'sprint', false); return; }
   if (!o && team.chaser === p) { chase(p, true); return; }
   if (o && o.team !== team) {
     if (team.presser === p && !b.held) { press(p, o, h); return; }
-    if (team.cover === p && team.counterPress) { press(p, o, h); return; }
+    // presion tras perdida, o doble marca en la banda / tras un mal control: el segundo tambien va
+    if (team.cover === p && (team.counterPress || team.doubleTeam) && Math.hypot(o.pos.x - p.pos.x, o.pos.z - p.pos.z) < 14) { press(p, o, h); return; }
     if (team.cover === p && teamDiff(team).cover) {
       const gx = team.ownGoalX, dx = gx - o.pos.x, dz = -o.pos.z, dl = Math.hypot(dx, dz) || 1;
       moveTo(p, o.pos.x + dx / dl * 6, o.pos.z + dz / dl * 6); faceBall(p); return;
@@ -297,8 +338,17 @@ function press(p, o, h) {
   const team = p.team, gx = team.ownGoalX, dd = teamDiff(team), tac = TACTICS[team.tactic];
   const dx = gx - o.pos.x, dz = -o.pos.z, dl = Math.hypot(dx, dz) || 1;
   const d = Math.hypot(o.pos.x - p.pos.x, o.pos.z - p.pos.z);
-  const stand = d > 4 ? 1.0 : 1.7;
-  moveTo(p, o.pos.x + dx / dl * stand + o.vel.x * 0.3, o.pos.z + dz / dl * stand + o.vel.z * 0.3, d > 3 ? 'sprint' : 'run', false);
+  // sin señal de presion y con el rival de frente: temporiza (se para a 2,5 m y espera) en vez de tirarse
+  const trig = team.pressTrig || team.counterPress || Math.abs(o.pos.x - team.ownGoalX) < 20; // cerca del area propia siempre aprieta
+  const stand = d > 4 ? 1.0 : trig ? 1.7 : 2.5;
+  let sx = o.pos.x + dx / dl * stand + o.vel.x * 0.3, sz = o.pos.z + dz / dl * stand + o.vel.z * 0.3;
+  // sombra de cobertura: se corre un poco hacia el pase mas peligroso (el compañero del rival mas adelantado y cerca)
+  if (d < 6) {
+    let mk = null, ms = 1e9;
+    for (const q of o.team.players) { if (q === o || q.isGK) continue; const dq = Math.hypot(q.pos.x - o.pos.x, q.pos.z - o.pos.z); if (dq > 22) continue; const s = Math.abs(q.pos.x - team.ownGoalX) + dq * 0.5; if (s < ms) { ms = s; mk = q; } }
+    if (mk) { const ux = mk.pos.x - o.pos.x, uz = mk.pos.z - o.pos.z, ul = Math.hypot(ux, uz) || 1; sx += ux / ul * 0.7; sz += uz / ul * 0.7; }
+  }
+  moveTo(p, sx, sz, d > 3 ? 'sprint' : 'run', false);
   p.wantFace = Math.atan2(o.pos.x - p.pos.x, o.pos.z - p.pos.z);
   p.jockey = d < 5; // se pone de perfil y baja el centro de gravedad
   // si el compañero humano esta encima, la IA acompaña sin tirarse
@@ -306,10 +356,13 @@ function press(p, o, h) {
   p.brain.tk -= h;
   const dBall = Math.hypot(G.ball.px - p.pos.x, G.ball.pz - p.pos.z);
   if (dBall < 1.9 && p.brain.tk <= 0 && !p.action) {
-    p.brain.tk = rand(0.5, 1.3) / (dd.press * tac.pressK);
+    p.brain.tk = rand(0.6, 1.5) / (dd.press * tac.pressK);
+    // temporizar: espera a que la pelota se separe del pie (toque largo, mal control, de espaldas) para meter el pie
+    const loose = Math.hypot(G.ball.px - o.pos.x, G.ball.pz - o.pos.z) > 0.75 || o.touchHold > G.time || o.stun > 0;
     const r = Math.random();
-    if (r < 0.5 * dd.press) startTackle(p);
-    else if (r < 0.56 * dd.press && dBall < 1.6 && (G.setup.diff >= 2 || Math.random() < 0.4)) startSlide(p);
+    if (r < (loose ? 0.8 : 0.36) * dd.press) startTackle(p);
+    // barrida solo si hace falta: pelota suelta y el rival se le escapa (mas rapido o ya lo paso)
+    else if (loose && r < 0.88 * dd.press && dBall < 1.6 && (Math.hypot(o.vel.x, o.vel.z) > Math.hypot(p.vel.x, p.vel.z) + 0.5 || (o.pos.x - p.pos.x) * team.attackDir < 0) && (G.setup.diff >= 2 || Math.random() < 0.4)) startSlide(p);
   }
 }
 
@@ -320,29 +373,36 @@ function carrierAI(p, h) {
   if (p.action) { p.want.x *= 0.5; p.want.z *= 0.5; return; }
   p.brain.decide -= h;
   const near = nearestOpp(p);
-  if (p.brain.decide <= 0 || (near.d < 1.6 && p.brain.decide < dd.decide * 0.5)) {
+  // decide antes si se le viene un rival encima (levanta la cabeza antes de que lo encimen)
+  if (p.brain.decide <= 0 || (near.d < 2.8 && p.brain.decide < dd.decide * 0.6)) {
     p.brain.decide = dd.decide * rand(0.7, 1.3);
     const opts = [];
     // remate segun la calidad de la ocasion (angulo al arco, distancia y rivales tapando)
     const xg = xgAt(team, p.pos.x, p.pos.z);
     if (xg > 0.02) {
       let blk = 0; for (const o of team.opp.players) if (!o.isGK) { const sd = segDist(p.pos.x, p.pos.z, gx, 0, o.pos.x, o.pos.z); if (sd < 1.5) blk += (1.5 - sd) / 1.5; }
-      const s = xg * (1 - Math.min(0.8, blk * 0.35)) * 12 - 0.1 - (G.mode === 'menu' ? 0.1 : 0);
+      // de lejos (>18 m) prefiere seguir la jugada, salvo los que se animan a patear de lejos
+      const far = Math.max(0, goalD - 18) * (p.info.longShot ? 0.015 : 0.045);
+      const s = xg * (1 - Math.min(0.8, blk * 0.35)) * 12 - 0.1 - far - (G.mode === 'menu' ? 0.1 : 0);
       p.brain.xg = xg;
       opts.push({ s: s + randn() * dd.noise, f: () => aiShoot(p, goalD) });
     }
-    if (rx > 30 && Math.abs(p.pos.z) > 16) opts.push({ s: 0.85 + (tac.cross || 0) + randn() * dd.noise, f: () => aiCross(p) });
+    // centro: vale mas cuantos mas compañeros haya en el area
+    if (rx > 27 && Math.abs(p.pos.z) > 14) {
+      let inBox = 0; for (const m of team.players) if (m !== p && !m.isGK && Math.abs(gx - m.pos.x) < PITCH.boxX && Math.abs(m.pos.z) < PITCH.boxHW) inBox++;
+      opts.push({ s: 0.45 + Math.min(3, inBox) * 0.22 + (rx > 40 ? 0.2 : 0) + (tac.cross || 0) + randn() * dd.noise, f: () => aiCross(p) });
+    }
     const bp = bestPass(p, near.d);
-    if (bp) opts.push({ s: bp.s + tac.pass + randn() * dd.noise, f: () => startKick(p, bp.kind, { receiver: bp.m, power: bp.power }) });
+    if (bp) opts.push({ isPass: true, s: bp.s + tac.pass + (p.info.passer ? 0.1 : 0) + randn() * dd.noise, f: () => startKick(p, bp.kind, { receiver: bp.m, power: bp.power }) });
     let space = 8; for (const o of team.opp.players) { const ox = (o.pos.x - p.pos.x) * ad, oz = o.pos.z - p.pos.z; if (ox > -1 && ox < 9 && Math.abs(oz) < ox * 0.9 + 1.5) space = Math.min(space, Math.hypot(ox, oz)); }
     // encarar: en campo rival y con lugar adelante, avanza con la pelota hacia el arco
-    const ds = 0.25 + space / 8 * 0.6 - (near.d < 2 ? 0.45 : 0) + tac.dribble + (rx < -30 ? -0.3 : 0) + (rx > 12 && space > 3 ? 0.35 : 0);
+    const ds = 0.25 + space / 8 * 0.6 - clamp((3.2 - near.d) / 1.6, 0, 1) * 0.5 + tac.dribble + (p.info.dribbler ? 0.15 : 0) + (rx < -30 ? -0.3 : 0) + (rx > 12 && space > 3 ? 0.35 : 0);
     opts.push({ s: ds + randn() * dd.noise, f: null });
     // en peligro en el area propia: reventarla
     if (rx < -30 && near.d < 2.5) opts.push({ s: 0.9 + randn() * 0.2, f: () => startKick(p, 'clear', { dir: Math.random() < 0.5 ? { x: ad * 0.5, z: (Math.sign(p.pos.z) || 1) } : { x: ad, z: -Math.sign(p.pos.z) * 0.5 }, power: 0.8 }) });
     let best = opts[0]; for (const o of opts) if (o.s > best.s) best = o;
     // si lo unico que hay es un pase muy arriesgado, mejor proteger un ratito y esperar apoyo
-    if (best.f && bp && best.s === bp.s + tac.pass && near.d < 1.8 && passRisk(p, bp.m.pos.x, bp.m.pos.z, bp.kind === 'lob', bp.m) > 0.65 && Math.random() < 0.7) best = { f: null };
+    if (best.f && bp && best.isPass && near.d < 1.8 && passRisk(p, bp.m.pos.x, bp.m.pos.z, bp.kind === 'lob', bp.m) > 0.65 && Math.random() < 0.7) best = { f: null };
     if (best.f) { best.f(); return; }
   }
   // proteger: con un rival encima y sin pase, se aleja despacio poniendo el cuerpo entre el rival y la pelota
@@ -405,6 +465,8 @@ function bestPass(p, pressure) {
     const risk = lob ? rL : rG;
     let s = gain * 0.035 + (m.pos.x * ad > 20 && p.pos.x * ad < 20 ? 0.25 : 0) + open / 8 * 0.35 + xgAt(team, m.pos.x, m.pos.z) * 5 - risk * 1.7 - Math.max(0, risk - 0.45) * 2.5 - (d > 35 ? 0.3 : 0) + (pressure < 2.2 ? 0.25 : -0.1) - (lob ? 0.15 - tac.direct * 0.3 : 0);
     if (m.isGK) s -= pressure < 2 ? 0.3 : 1.2;
+    // pase al area: vale mas que tocar afuera
+    if (Math.abs(team.oppGoalX - m.pos.x) < PITCH.boxX && Math.abs(m.pos.z) < PITCH.boxHW) s += 0.3;
     if (lob && Math.abs(m.pos.z - p.pos.z) > 28 && open > 5 && risk < 0.4) s += 0.3; // cambio de frente
     let kind = lob ? 'lob' : 'pass';
     // pase filtrado al delantero que pica
@@ -422,8 +484,9 @@ function bestPass(p, pressure) {
 }
 function aiShoot(p, goalD) {
   const gk = p.team.opp.gk;
-  const aimZ = (gk && gk.pos.z > 0 ? -1 : 1) * rand(1.6, 3.0);
-  const power = clamp(0.45 + goalD / 45 + randn() * 0.08, 0.35, 0.95);
+  const aimZ = (gk && gk.pos.z > 0 ? -1 : 1) * rand(2.0, 3.2); // cerca del palo (los postes estan a 3,66)
+  // no siempre a fondo: de lejos casi siempre un tiro fuerte pero no al limite (los muy altos se van por arriba)
+  const power = clamp(0.45 + goalD / 75 + randn() * 0.1 + (p.info.longShot ? 0.05 : 0), 0.35, 0.88);
   startKick(p, 'shot', { aimZ, power, finesse: goalD < 20 && Math.random() < 0.35 });
 }
 function aiCross(p) {
@@ -435,12 +498,19 @@ function aiCross(p) {
     const cx = gx - ad * rand(10, 14), cz = p.pos.z * 0.25, rec = nearTo(cx, cz, 9);
     if (rec && passRisk(p, rec.pos.x, rec.pos.z, false, rec) < 0.5) { startKick(p, 'pass', { receiver: rec, power: 0.5 }); return; }
   }
-  // centro tenso (bajo y rapido) si hay alguien entrando al primer palo; si no, bombeado al segundo palo o al punto penal
-  const side = Math.sign(p.pos.z) || 1, npx = gx - ad * 6, npz = side * 4;
-  const nearPost = nearTo(npx, npz, 4.5);
+  // al espacio del area donde llega un compañero: tenso al primer palo o bombeado al segundo palo / punto penal
+  // (se apunta al lugar, no a donde esta parado ahora: el que llega pica cuando sale el centro)
+  const runners = mates.map(m => ({ m, s: boxSpot(m, p) })).filter(e => e.s);
+  let pickR = null, bs = -1e9;
+  for (const e of runners) {
+    const sx = e.s.x * ad, d = Math.hypot(e.m.pos.x - sx, e.m.pos.z - e.s.z);
+    if (d > 16) continue; // no llega
+    let marked = 9; for (const o of team.opp.players) marked = Math.min(marked, Math.hypot(o.pos.x - sx, o.pos.z - e.s.z));
+    const sc = marked * 0.3 - d * 0.08 + Math.random() * 0.6;
+    if (sc > bs) { bs = sc; pickR = e; }
+  }
   let tgt, rec, driven = false;
-  if (nearPost) { rec = nearPost; tgt = { x: npx, z: npz * 0.8 }; driven = true; }
-  else { tgt = { x: gx - ad * rand(5, 11), z: -side * rand(0, 5) }; rec = nearTo(tgt.x, tgt.z, 16); }
-  if (rec && !driven) { tgt.x = rec.pos.x + rec.vel.x * 0.8; tgt.z = rec.pos.z + rec.vel.z * 0.8; }
+  if (pickR) { rec = pickR.m; tgt = { x: pickR.s.x * ad, z: pickR.s.z }; driven = Math.abs(pickR.s.z - p.pos.z) < Math.abs(p.pos.z) && Math.random() < 0.6; }
+  else { const side = Math.sign(p.pos.z) || 1; tgt = { x: gx - ad * rand(6, 11), z: -side * rand(0, 4) }; rec = nearTo(tgt.x, tgt.z, 16); }
   startKick(p, 'cross', { target: tgt, receiver: rec, power: 0.7, driven, inswing: Math.random() < 0.6 });
 }
