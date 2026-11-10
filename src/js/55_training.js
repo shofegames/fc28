@@ -85,7 +85,7 @@ function startTraining(drill) {
   G.players = G.teams[0].players.concat(O.players);
   G.human = new Human(G.teams[0]); Replay.reset();
   G.match = new Match({ halfMin: 999, training: true }); G.match.training = true; G.match.state = 'play';
-  R.setEnv(S.night, S.cloudy);
+  R.setEnv(S);
   for (const s of ['home', 'setup', 'cfg', 'train']) $(s).classList.add('hidden');
   $('end').classList.add('hidden');
   Hud.init(); Hud.show(true); Touch.show(true); R.prep(G.scene);

@@ -66,5 +66,5 @@ const G = {
   ball: null, teams: [], players: [],
   owner: null, lastTouch: null, passInfo: null, kickSeq: 0,
   match: null, human: null, mode: 'menu', paused: false, time: 0, frame: 0,
-  setup: store.get('fc28_setup', { home: 'rasing', away: 'barchelona', homeKit: 'home', awayKit: 'auto', diff: 1, halfMin: 3, night: false, cloudy: false, formation: '4-3-3', tactic: 'equilibrado' })
+  setup: store.get('fc28_setup', { home: 'rasing', away: 'barchelona', homeKit: 'home', awayKit: 'auto', diff: 1, halfMin: 3, night: false, cloudy: false, tod: 'dia', weather: 'sol', formation: '4-3-3', tactic: 'equilibrado' })
 };

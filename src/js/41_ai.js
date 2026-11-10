@@ -254,6 +254,7 @@ function aiUpdate(h) {
 function brain(p, h) {
   const team = p.team, b = G.ball, o = G.owner, st = G.match.state;
   p.sprint = false; p.wantFace = null; p.jockey = false;
+  if (st === 'walkout') { walkBrain(p); return; }
   if (st === 'goal' || st === 'halftime' || st === 'fulltime' || st === 'intro') { idleBrain(p); return; }
   const r = G.match.restart;
   if (r) { // en saques: el que saca va a la pelota, los demas a su lugar
@@ -306,6 +307,14 @@ function brain(p, h) {
   else if (!attacking && behindBall && dd > 8) mode = dd > 16 ? 'sprint' : 'run';
   const d = moveTo(p, B.tx, B.tz, mode);
   if (d < 4) faceBall(p);
+}
+// salida de los equipos: caminan (trotecito) hasta su lugar en la fila y miran a la camara
+function walkBrain(p) {
+  const w = G.match.walk && G.match.walk.get(p); p.sprint = false; p.calm = true;
+  if (!w) { p.want.x = p.want.z = 0; return; }
+  const dx = w.x - p.pos.x, dz = w.z - p.pos.z, d = Math.hypot(dx, dz);
+  if (d < 0.25) { p.want.x = p.want.z = 0; p.wantFace = 0; return; }
+  const sp = Math.min(3.3, d * 1.6); p.want.x = dx / d * sp; p.want.z = dz / d * sp;
 }
 function idleBrain(p) {
   const m = G.match;

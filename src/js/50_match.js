@@ -14,7 +14,29 @@ class Match {
     const m = Math.min(this.minute, this.baseMin + 45 + (this.added || 0)), mm = Math.floor(m), ss = Math.floor((m - mm) * 60);
     return String(mm).padStart(2, '0') + ':' + String(ss).padStart(2, '0');
   }
-  start() { this.setKickoff(this.firstKick); this.state = 'intro'; this.timer = 0; if (!this.attract) Cam.intro(); }
+  start() {
+    this.setKickoff(this.firstKick);
+    if (!this.attract && !this.training) { this.walkout(); return; }
+    this.state = 'intro'; this.timer = 0; if (!this.attract) Cam.intro();
+  }
+  // salida de los equipos: salen del tunel en dos filas y forman en la mitad de la cancha mirando a la camara,
+  // con las formaciones en pantalla (PASE para saltear)
+  walkout() {
+    this.state = 'walkout'; this.timer = 0; this.walk = new Map(); Cam.mode = 'walkout'; Cam.t = 0;
+    G.teams.forEach((t, ti) => {
+      const s = ti === 0 ? -1 : 1;
+      const list = t.players.slice().sort((a, b) => (b.isGK - a.isGK) || a.info.num - b.info.num);
+      list.forEach((p, i) => {
+        p.teleport(s * 0.9, -27 - i * 1.4, 0);
+        this.walk.set(p, { x: s * (1.8 + (list.length - 1 - i) * 1.15), z: -2 });
+      });
+    });
+    G.ball.place(0, 0); G.owner = null;
+  }
+  endWalkout() {
+    Hud.lineup(false); this.walk = null;
+    this.setKickoff(this.firstKick); this.state = 'intro'; this.timer = 0; Cam.intro();
+  }
   locked(p) { return !!(this.restart && this.restart.taker === p); }
   setKickoff(ti) {
     const team = G.teams[ti];
@@ -114,6 +136,7 @@ class Match {
     if (this.training) return;
     if (this.state !== 'play' || !f || !v || f.team === v.team) return;
     const team = v.team, gx = f.team.ownGoalX;
+    if (f.team.side === 1 && !this.attract) AU.boo(); // la hinchada (casi toda local) silba la falta del visitante
     f.team.stats.fouls++; f.stats.fouls = (f.stats.fouls || 0) + 1;
     const vf = v.fwd(), dx = v.pos.x - f.pos.x, dz = v.pos.z - f.pos.z, dl = Math.hypot(dx, dz) || 1;
     const behind = (vf.x * dx + vf.z * dz) / dl > 0.4;
@@ -185,6 +208,12 @@ class Match {
     this.leaving = this.leaving.filter(p => !p.gone);
     if (this.sendQ && this.sendQ.length) { const due = this.sendQ.filter(s => G.time >= s.t); this.sendQ = this.sendQ.filter(s => G.time < s.t); for (const s of due) this.sendOff(s.p); }
     const st = this.state;
+    if (st === 'walkout') {
+      if (this.timer > 5.2 && !this.lineupOn) { this.lineupOn = true; Hud.lineup(true); AU.cheer(0.7); }
+      const skip = this.timer > 0.6 && (Input.hit('pass') || Input.hit('shoot') || Input.hit('action') || Input.down.has('Enter'));
+      if (this.timer > 11 || skip) { this.lineupOn = false; this.endWalkout(); }
+      return;
+    }
     if (st === 'intro') {
       if (this.timer > (this.attract ? 0.5 : 2.6)) { this.state = 'restart'; AU.whistle(1, true); }
       return;
@@ -324,6 +353,7 @@ class Match {
     Hud.score(team.side);
     Hud.msg('¡GOOOL!', scorer ? (own ? 'En contra · ' + scorer.name : scorer.info.num + ' · ' + scorer.name) + ' · ' + team.club.short : team.club.name);
     Stadium.drawScreen(G.teams[0].club.short + ' ' + G.teams[0].score + ' - ' + G.teams[1].score + ' ' + G.teams[1].club.short);
+    Stadium.celebrate(team.side === 0, [team.kit.shirt, team.kit.shirt2]); // bengalas de humo en la tribuna del que hizo el gol
     if (scorer && !own) { scorer.action = { type: 'celebrate', t: 0, dur: 4.2, contact: 9, fired: true, style: ['fist', 'airplane', 'knees'][Math.floor(Math.random() * 3)] }; Cam.goal(scorer); }
     else Cam.goal(null);
     for (const p of team.players) if (p !== scorer && !p.isGK && scorer && Math.hypot(p.pos.x - scorer.pos.x, p.pos.z - scorer.pos.z) < 25) p.celebrateWith = scorer;

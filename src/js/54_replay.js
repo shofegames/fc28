@@ -19,11 +19,12 @@ const Replay = {
     this.goalIdx = gi < 0 ? this.buf.length - 1 : gi;
     this.i0 = Math.max(0, this.goalIdx - 4.3 * 30);
     this.frames = this.buf.slice(this.i0); this.goalIdx -= this.i0;
-    this.t = 0; this.active = true;
-    Hud.replay(true); Hud.msg(null); Touch.show(false);
+    this.t = 0; this.active = true; this.pass = 0;
+    Hud.replay(true); Hud.msg(null); Touch.show(false); this.tag('REPETICIÓN');
     // la camara arranca cerca de la pelota
     const f = this.frames[0]; this.cam.x = f.b[0]; this.cam.z = f.b[2] + 14; this.cam.y = 6; this.cam.lx = f.b[0]; this.cam.lz = f.b[2];
   },
+  tag(t) { const el = $('replayTxt'); if (el) el.textContent = t; },
   stop() {
     this.active = false; this.buf = []; Hud.replay(false); Touch.show(true);
     for (const p of G.players.concat(Refs.all)) { p.prev.copy(p.pos); }
@@ -34,10 +35,16 @@ const Replay = {
     if (!this.active) return;
     if (Input.hit('pass') || Input.hit('shoot') || Input.hit('action') || Input.down.has('Enter') || Input.down.has('Escape')) { Input.endStep(); this.stop(); return; }
     Input.poll(); Input.endStep();
-    const fi = this.t * 30, near = Math.abs(fi - this.goalIdx) < 30;
-    this.t += dt * (near ? 0.45 : 0.85); // camara lenta cerca del gol
+    // dos pasadas: 1) toda la jugada con camara de TV alta; 2) el gol en camara lenta, detras del arco a ras del piso
     const n = this.frames.length;
-    if (fi >= n - 1) { this.stop(); return; }
+    let fi = this.t * 30;
+    if (this.pass === 0 && fi >= Math.min(n - 1, this.goalIdx + 24)) {
+      this.pass = 1; this.t = Math.max(0, this.goalIdx - 50) / 30; fi = this.t * 30; this.tag('REPETICIÓN · CÁMARA LENTA');
+      const f = this.frames[Math.floor(fi)], sg = Math.sign(this.frames[this.goalIdx].b[0]) || 1;
+      Object.assign(this.cam, { x: sg * (PITCH.HL + 4.3), y: 0.7, z: f.b[2] * 0.4, lx: f.b[0], ly: 0.6, lz: f.b[2] });
+    }
+    this.t += dt * (this.pass === 0 ? 0.9 : 0.42);
+    if (fi >= n - 1 || (this.pass === 1 && fi >= this.goalIdx + 24)) { this.stop(); return; }
     const i = Math.floor(fi), u = fi - i, A = this.frames[i], B = this.frames[Math.min(n - 1, i + 1)];
     this.alpha = u;
     // jugadores y arbitros
@@ -57,14 +64,12 @@ const Replay = {
     G.owner = A.owner;
     // camara: al costado de la jugada, mas baja y cerca que la de TV; al final, detras del arco
     const bx = lerp(A.b[0], B.b[0], u), bz = lerp(A.b[2], B.b[2], u), by = lerp(A.b[1], B.b[1], u), sg = Math.sign(this.frames[this.goalIdx].b[0]) || 1;
-    const late = fi > this.goalIdx - 40;
-    let cx, cy, cz;
-    if (late) { cx = sg * (PITCH.HL + 9); cy = 3.2; cz = bz * 0.5 + 5; }
-    else { cx = bx - sg * 9; cy = 4.5; cz = bz + 12; }
-    const k = 1 - Math.exp(-dt * (late ? 2.2 : 3));
+    let cx, cy, cz, fov, k;
+    if (this.pass === 0) { cx = clamp(bx * 0.9, -40, 40); cy = 15; cz = bz * 0.3 + 34; fov = 30; k = 1 - Math.exp(-dt * 2.5); }
+    else { cx = sg * (PITCH.HL + 4.3); cy = 0.7; cz = bz * 0.4; fov = 40; k = 1 - Math.exp(-dt * 1.5); }
     const C = this.cam; C.x += (cx - C.x) * k; C.y += (cy - C.y) * k; C.z += (cz - C.z) * k;
     C.lx += (bx - C.lx) * k * 2; C.ly += (Math.min(by, 2) * 0.6 + 0.6 - C.ly) * k * 2; C.lz += (bz - C.lz) * k * 2;
     const cam = G.camera; cam.position.set(C.x, C.y, C.z); cam.lookAt(C.lx, C.ly, C.lz);
-    if (Math.abs(cam.fov - 36) > 0.01) { cam.fov = 36; cam.updateProjectionMatrix(); }
+    if (Math.abs(cam.fov - fov) > 0.01) { cam.fov = fov; cam.updateProjectionMatrix(); }
   },
 };

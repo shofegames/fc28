@@ -52,6 +52,17 @@ const Hud = {
       r.innerHTML = '<i></i>'.repeat(t.stats.red);
     });
   },
+  // formaciones en pantalla (salida de los equipos)
+  lineup(on) {
+    const el = $('lineup'); if (!el) return;
+    if (!on) { el.classList.add('hidden'); return; }
+    el.innerHTML = G.teams.map(t => {
+      const list = t.players.slice().sort((a, b) => (b.isGK - a.isGK) || a.info.num - b.info.num);
+      return `<div class="lu" style="--c:${t.kit.shirt}"><div class="luh"><img src="${crestURL(t.club)}" alt=""><div><b>${t.club.name.toUpperCase()}</b><span>${t.formKey} · ${(TACTICS[t.tactic] && TACTICS[t.tactic].name || t.tactic).toString().toUpperCase()}</span></div></div>` +
+        list.map(p => `<div class="lup"><i>${p.info.num}</i>${p.info.last.toUpperCase()}${p.isGK ? ' <em>ARQ</em>' : ''}</div>`).join('') + '</div>';
+    }).join('') + '<p class="luk">tocá PASE para empezar</p>';
+    el.classList.remove('hidden');
+  },
   info(t) { const el = $('sbInfo'); if (!t) { el.classList.remove('on'); return; } el.textContent = t; el.classList.add('on'); },
   update() {
     if (!this.shown || !G.match) return;
@@ -132,16 +143,15 @@ const UI = {
     pick($('pickH'), 0); pick($('pickA'), 1);
     const seg = (label, key, items) => `<div class="opt"><label>${label}</label><div class="seg" data-key="${key}">${items.map(([v, t]) => `<button data-v="${v}" class="${String(S[key]) === String(v) ? 'on' : ''}">${t}</button>`).join('')}</div></div>`;
     $('sopts').innerHTML = `<div class="opt"><label>ESTADIO</label><div class="seg"><button class="on">Estadio Shofe</button></div></div>` +
-      seg('HORA', 'night', [[false, 'Día'], [true, 'Noche']]) +
-      seg('CLIMA', 'cloudy', [[false, 'Soleado'], [true, 'Nublado']]) +
+      seg('HORA', 'tod', [['dia', 'Día'], ['atardecer', 'Atardecer'], ['noche', 'Noche']]) +
+      seg('CLIMA', 'weather', [['sol', 'Soleado'], ['nublado', 'Nublado'], ['lluvia', 'Lluvia']]) +
       seg('DIFICULTAD DE LA IA', 'diff', DIFFS.map((d, i) => [i, d.name])) +
-      seg('DURACIÓN DE CADA TIEMPO', 'halfMin', [[2, '2 min'], [3, '3 min'], [5, '5 min'], [8, '8 min'], [12, '12 min']]) +
-      `<div class="opt"><label>LLUVIA</label><div class="seg"><button disabled style="opacity:.45">Próximamente</button></div></div>`;
+      seg('DURACIÓN DE CADA TIEMPO', 'halfMin', [[2, '2 min'], [3, '3 min'], [5, '5 min'], [8, '8 min'], [12, '12 min']]);
     $('sopts').querySelectorAll('.seg[data-key] button').forEach(b => b.onclick = () => {
       AU.ui(); const key = b.parentElement.dataset.key; let v = b.dataset.v;
-      v = v === 'true' ? true : v === 'false' ? false : Number(v);
+      v = v === 'true' ? true : v === 'false' ? false : isNaN(Number(v)) ? v : Number(v);
       S[key] = v; this.buildSetup();
-      if (key === 'night' || key === 'cloudy') R.setEnv(S.night, S.cloudy);
+      if (key === 'tod' || key === 'weather') { S.night = S.tod === 'noche'; S.cloudy = S.weather === 'nublado'; R.setEnv(S); }
     });
   },
   // ---- configuracion ----

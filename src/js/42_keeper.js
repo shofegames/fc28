@@ -27,6 +27,7 @@ function keeperAI(p, h) {
   const team = p.team, b = G.ball, ad = team.attackDir, gx = team.ownGoalX, K = p.brain;
   const dd = teamDiff(team), st = G.match.state;
   p.sprint = false; p.wantFace = null;
+  if (st === 'walkout') { walkBrain(p); return; }
   if (st === 'goal' || st === 'intro' || st === 'halftime' || st === 'fulltime') { idleBrain(p); return; }
   if (G.match.restart && G.match.restart.kickoff) { p.want.x = p.want.z = 0; p.wantFace = ad > 0 ? Math.PI / 2 : -Math.PI / 2; return; }
   const rr = G.match.restart;

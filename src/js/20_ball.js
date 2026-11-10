@@ -86,7 +86,10 @@ class Ball {
     this.traj = new Float32Array(91 * 4); this.trajN = 0; this.trajDirty = true;
     this.mesh = new THREE.Mesh(new THREE.SphereGeometry(BALL_R, 28, 18), new THREE.MeshPhongMaterial({ map: ballTexture(), shininess: 40, specular: 0x333333 }));
     this.mesh.castShadow = true; G.scene.add(this.mesh);
-    this.q = new THREE.Quaternion();
+    // desenfoque leve cuando va rapida: una estela alargada y transparente en la direccion del movimiento
+    this.blur = new THREE.Mesh(new THREE.SphereGeometry(BALL_R * 0.96, 12, 8), new THREE.MeshBasicMaterial({ color: 0xf2f4f6, transparent: true, opacity: 0, depthWrite: false }));
+    this.blur.userData.keep = true; this.blur.visible = false; G.scene.add(this.blur);
+    this.q = new THREE.Quaternion(); this._v = new THREE.Vector3(); this._up = new THREE.Vector3(0, 1, 0);
     this.lastSfx = 0;
   }
   get speed() { return Math.hypot(this.vx, this.vy, this.vz); }
@@ -167,6 +170,13 @@ class Ball {
     m.position.set(lerp(this.prev.x, this.px, alpha), lerp(this.prev.y, this.py, alpha), lerp(this.prev.z, this.pz, alpha));
     const w = Math.hypot(this.wx, this.wy, this.wz);
     if (w > 0.01) { const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(this.wx / w, this.wy / w, this.wz / w), w * dt); this.q.premultiply(q); m.quaternion.copy(this.q); }
+    const sp = this.speed, bl = this.blur;
+    if (sp > 13 && Q().post && !this.held) {
+      const v = this._v.set(this.vx, this.vy, this.vz).normalize(), len = sp / 60 * 1.6;
+      bl.visible = true; bl.position.copy(m.position).addScaledVector(v, -len * 0.5);
+      bl.quaternion.setFromUnitVectors(this._up, v); bl.scale.set(1, 1 + len / (BALL_R * 2), 1);
+      bl.material.opacity = clamp((sp - 13) / 18, 0, 1) * 0.35;
+    } else bl.visible = false;
   }
 }
 function ballEvent(type, v, sg) {

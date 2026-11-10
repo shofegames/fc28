@@ -28,7 +28,7 @@ function startAttract() {
   makeTeams(a.id, b.id, 'home', 'auto', {});
   G.match = new Match({ halfMin: 6, attract: true });
   G.match.start();
-  R.setEnv(G.setup.night, G.setup.cloudy);
+  R.setEnv(G.setup);
   Stadium.drawScreen();
   Hud.show(false); Touch.show(false); Cam.mode = 'menu';
   R.prep(G.scene);
@@ -43,7 +43,7 @@ function startMatch() {
   G.human = new Human(G.teams[0]);
   Replay.reset();
   G.match = new Match({ halfMin: S.halfMin });
-  R.setEnv(S.night, S.cloudy);
+  R.setEnv(S);
   Stadium.drawScreen(G.teams[0].club.short + ' 0 - 0 ' + G.teams[1].club.short);
   for (const s of ['home', 'setup', 'cfg', 'train']) $(s).classList.add('hidden');
   $('end').classList.add('hidden');
@@ -51,7 +51,7 @@ function startMatch() {
   R.prep(G.scene);
   G.match.start();
   G.human.select(G.match.restart.taker);
-  Cam.snap(); Cam.intro();
+  Cam.snap(); if (G.match.state !== 'walkout') Cam.intro();
   AU.init(); AU.cheer(0.6);
   if (!store.get('fc28_seenHelp', false)) { store.set('fc28_seenHelp', true); setTimeout(() => { if (G.mode === 'match') UI.help(true); }, 2800); }
 }
@@ -132,8 +132,11 @@ function render(dt, alpha, replay) {
   Stadium.update(G.time, Math.max(AU.excite, danger * 0.25));
   AU.update(dt, danger);
   if (dt > 0 && !replay) Cam.update(dt);
+  // sombras nitidas donde mira la camara; de noche, 4 sombras por jugador; lluvia delante de la camara
+  R.fitShadow(Cam.lx, Cam.lz, Cam.mode === 'menu' ? 70 : Cam.mode === 'goal' ? 22 : 36);
+  NightShadows.update(); Weather.update();
   Hud.update(); Touch.update();
-  G.renderer.render(G.scene, G.camera);
+  Post.render(G.scene, G.camera);
 }
 function boot() {
   if (!window.THREE) { $('loading').innerHTML = '<div style="padding:24px;text-align:center">No se pudo cargar el motor 3D. Revisá la conexión a internet y recargá la página.</div>'; return; }

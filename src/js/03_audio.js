@@ -20,6 +20,36 @@ const AU = {
     src2.connect(hp); hp.connect(this.roarG); this.roarG.connect(this.master); src2.start(0, 1.3);
     this.noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 0.5, ctx.sampleRate);
     const nd = this.noiseBuf.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+    if (this._rainWanted) this.rain(true);
+  },
+  // lluvia: ruido blanco filtrado en loop
+  rain(on) {
+    const ctx = this.ctx; if (!ctx) { this._rainWanted = on; return; }
+    if (!this.rainG) {
+      const len = ctx.sampleRate * 2, buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      const s = ctx.createBufferSource(); s.buffer = buf; s.loop = true;
+      const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 900;
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 6500;
+      this.rainG = ctx.createGain(); this.rainG.gain.value = 0;
+      s.connect(hp); hp.connect(lp); lp.connect(this.rainG); this.rainG.connect(this.master); s.start();
+    }
+    this.rainG.gain.setTargetAtTime(on ? 0.075 : 0, ctx.currentTime, 0.6);
+  },
+  // silbidos del publico (falta del visitante, perdida de tiempo)
+  boo() { for (let i = 0; i < 4; i++) setTimeout(() => this.noise(1.1 + Math.random() * 0.5, 2500 + Math.random() * 900, 7, 0.045), i * 90); },
+  // bombo de la barra y cantos (el griterio sube y baja al ritmo) mientras se juega
+  drums(dt) {
+    const m = G.match; if (!m || G.mode !== 'match' || m.training || m.state !== 'play') { this.drumT = 0; return; }
+    this.drumT = (this.drumT || 0) + dt;
+    const cyc = this.drumT % 18; if (cyc > 10) return; // 10 s de cantos, 8 de murmullo
+    const beat = Math.floor(cyc / 0.25);
+    if (beat !== this.lastBeat) {
+      this.lastBeat = beat;
+      const pat = [1, 0, 0, 1, 1, 0, 1, 0];
+      if (pat[beat % 8]) { this.tone(60, 0.24, 0.09, 'sine', 38); this.noise(0.06, 180, 1.2, 0.05, 'lowpass'); }
+      if (beat % 4 === 0 && this.roarG) this.roarG.gain.setTargetAtTime(0.05 + this.excite * 0.5, this.ctx.currentTime, 0.12);
+    }
   },
   setVolume(v) { CFG.volume = v; if (this.master) this.master.gain.value = v; },
   update(dt, danger) {
@@ -30,6 +60,7 @@ const AU = {
     this.crowdG.gain.setTargetAtTime(g, t, 0.25);
     this.roarG.gain.setTargetAtTime(this.excite * 0.5 + danger * 0.05, t, 0.2);
     this.crowdF.frequency.setTargetAtTime(480 + danger * 200 + this.excite * 500, t, 0.3);
+    this.drums(dt);
   },
   cheer(k) { this.excite = Math.min(1, Math.max(this.excite, k)); },
   noise(dur, freq, q, vol, type) {

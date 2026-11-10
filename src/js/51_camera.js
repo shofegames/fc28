@@ -17,6 +17,12 @@ const Cam = {
       const a = this.t * 0.05;
       px = Math.cos(a) * 78; pz = Math.sin(a) * 58 + 8; py = 24 + Math.sin(this.t * 0.11) * 6;
       lx = b.px * 0.4; ly = 2; lz = b.pz * 0.3; fov = 38; k = 1.2;
+    } else if (this.mode === 'walkout') {
+      // salida de los equipos: camara baja de frente a las filas; cuando forman, se aleja para verlos a todos
+      const u = smooth(clamp((this.t - 3.8) / 2.6, 0, 1));
+      px = Math.sin(this.t * 0.15) * 2.5; py = lerp(1.9, 2.5, u); pz = lerp(5, 12.5, u);
+      lx = 0; ly = 1.2; lz = lerp(-17, -2, u); fov = lerp(50, 56, u); k = 1.8;
+      if (this.t < 0.05) { this.px = px; this.py = py; this.pz = pz; this.lx = lx; this.ly = ly; this.lz = lz; this.fov = fov; }
     } else if (this.mode === 'goal') {
       const p = this.target;
       const tx = p ? p.pos.x : b.px, tz = p ? p.pos.z : b.pz;

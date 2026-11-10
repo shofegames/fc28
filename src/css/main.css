@@ -279,6 +279,19 @@ body.touchmode #power{bottom:auto;top:62px}
 #replayTag{position:absolute;right:24px;top:22px;display:flex;align-items:center;gap:9px;background:rgba(8,11,16,.88);padding:8px 14px;border-radius:9px;font-family:'Barlow Condensed',sans-serif;font-weight:800;letter-spacing:.2em;font-size:18px;animation:fadeIn .3s}
 #replayTag i{width:11px;height:11px;border-radius:50%;background:#ff3b4a;animation:blink 1s infinite}
 #replayTag span{font-size:12px;letter-spacing:.06em;color:var(--muted);font-weight:600}
+#replayTag b{font-weight:800}
+/* formaciones en pantalla (salida de los equipos) */
+#lineup{position:absolute;left:0;right:0;bottom:6vh;display:flex;justify-content:space-between;align-items:flex-end;padding:0 3vw;pointer-events:none;animation:fadeIn .5s;flex-wrap:wrap}
+#lineup .lu{width:min(250px,30vw);background:rgba(8,11,16,.86);border-radius:10px;overflow:hidden;border-top:4px solid var(--c);font-family:'Barlow Condensed',sans-serif;padding-bottom:6px}
+#lineup .luh{display:flex;gap:10px;align-items:center;padding:9px 12px;background:rgba(255,255,255,.05)}
+#lineup .luh img{width:34px;height:34px}
+#lineup .luh b{display:block;font-size:17px;letter-spacing:.06em}
+#lineup .luh span{font-size:12px;color:var(--muted);letter-spacing:.1em;font-weight:700}
+#lineup .lup{font-size:14px;font-weight:700;letter-spacing:.05em;padding:2px 12px;display:flex;gap:9px;align-items:center}
+#lineup .lup i{font-style:normal;width:22px;text-align:right;color:var(--c);font-weight:800}
+#lineup .lup em{font-style:normal;font-size:10px;color:var(--muted)}
+#lineup .luk{position:absolute;left:0;right:0;bottom:-4vh;text-align:center;font-size:12px;color:var(--muted);letter-spacing:.12em;font-family:'Barlow Condensed',sans-serif;font-weight:700}
+@media (max-height:520px){#lineup .lup{font-size:11px;padding:0 10px}#lineup .luh{padding:5px 10px}#lineup .luh img{width:24px;height:24px}#lineup .luh b{font-size:13px}}
 @keyframes blink{50%{opacity:.25}}
 
 /* ---------- entrenamiento ---------- */

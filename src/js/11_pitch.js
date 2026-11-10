@@ -60,18 +60,25 @@ const Pitch = {
       sh.fragmentShader = 'uniform sampler2D uDetail;\n' + sh.fragmentShader.replace('#include <map_fragment>',
         '#include <map_fragment>\n  float gd = texture2D(uDetail, vUv * 110.0).g; float gb = texture2D(uDetail, vUv * 9.0).r;\n  diffuseColor.rgb *= (0.78 + 0.44 * gd) * (0.94 + 0.12 * gb);');
     };
+    this.grassMat = gm; this.dry = { rough: gm.roughness, env: gm.envMapIntensity, col: gm.color.clone() };
     const grass = new THREE.Mesh(new THREE.PlaneGeometry(AW, AH), gm);
     grass.rotation.x = -Math.PI / 2; grass.receiveShadow = true; scene.add(grass);
     // tierra/cemento alrededor
     const apron = new THREE.Mesh(new THREE.PlaneGeometry(360, 300), new THREE.MeshLambertMaterial({ color: 0x2c3a2a }));
     apron.rotation.x = -Math.PI / 2; apron.position.y = -0.02; scene.add(apron);
 
-    // lineas como geometria (siempre nitidas)
-    const lm = new THREE.MeshBasicMaterial({ color: 0xeef1ea, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    // lineas como geometria (siempre nitidas), con la pintura un poco despareja (manchas de cal mas finas o gastadas)
+    const nc = document.createElement('canvas'); nc.width = nc.height = 128; const n2 = nc.getContext('2d');
+    n2.fillStyle = '#fff'; n2.fillRect(0, 0, 128, 128);
+    for (let i = 0; i < 260; i++) { const x = Math.random() * 128, yy = Math.random() * 128, r = 2 + Math.random() * 7; n2.fillStyle = `rgba(0,0,0,${0.08 + Math.random() * 0.22})`; n2.beginPath(); n2.ellipse(x, yy, r * 1.6, r * 0.6, 0, 0, TAU); n2.fill(); }
+    const ntex = new THREE.CanvasTexture(nc); ntex.wrapS = ntex.wrapT = THREE.RepeatWrapping; LINTEX.add(ntex);
+    const lm = new THREE.MeshBasicMaterial({ color: 0xeef1ea, alphaMap: ntex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
     const lw = 0.12, y = 0.012;
     const lines = new THREE.Group(); scene.add(lines);
     const rect = (x1, z1, x2, z2) => {
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(Math.abs(x2 - x1) || lw, Math.abs(z2 - z1) || lw), lm);
+      const w = Math.abs(x2 - x1) || lw, h = Math.abs(z2 - z1) || lw, g = new THREE.PlaneGeometry(w, h), uv = g.attributes.uv;
+      for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * w / 2.5 + x1 * 0.37, uv.getY(i) * h / 2.5 + z1 * 0.41); // la textura de manchas no se estira
+      const m = new THREE.Mesh(g, lm);
       m.rotation.x = -Math.PI / 2; m.position.set((x1 + x2) / 2, y, (z1 + z2) / 2); lines.add(m);
     };
     const hl = PITCH.HL, hw = PITCH.HW;
@@ -104,6 +111,13 @@ const Pitch = {
     const cc = new THREE.Mesh(new THREE.RingGeometry(PITCH.circR - lw / 2, PITCH.circR + lw / 2, 64), lm);
     cc.rotation.x = -Math.PI / 2; cc.position.y = y; lines.add(cc);
     const cs = new THREE.Mesh(new THREE.CircleGeometry(0.2, 16), lm); cs.rotation.x = -Math.PI / 2; cs.position.y = y; lines.add(cs);
+  },
+  // pasto mojado: mas oscuro y con brillo (refleja el cielo)
+  wet(on) {
+    const m = this.grassMat; if (!m) return;
+    const d = this.dry;
+    m.color.copy(d.col).multiplyScalar(on ? 0.8 : 1);
+    if (m.isMeshStandardMaterial) { m.roughness = on ? 0.42 : d.rough; m.envMapIntensity = on ? 1.1 : d.env; }
   },
   addFlag(x, z) {
     const g = new THREE.Group(); g.position.set(x, 0, z);

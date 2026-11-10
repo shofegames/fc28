@@ -52,8 +52,9 @@ function shirtTexture(kit, num, name, crest) {
   // numero y nombre en la espalda
   c.fillStyle = kit.num; c.textAlign = 'center'; c.textBaseline = 'middle';
   c.strokeStyle = 'rgba(0,0,0,0.35)'; c.lineWidth = 3;
-  c.font = '900 92px Arial Black, Arial'; c.strokeText(String(num), W / 2, H * 0.47); c.fillText(String(num), W / 2, H * 0.47);
-  c.font = '800 22px Arial Narrow, Arial'; c.fillText(name.toUpperCase(), W / 2, H * 0.17, 110);
+  // (el apellido va sobre la parte plana de la espalda, no sobre el hombro, para que se lea desde la camara)
+  c.font = '900 84px Arial Black, Arial'; c.strokeText(String(num), W / 2, H * 0.58); c.fillText(String(num), W / 2, H * 0.58);
+  c.lineWidth = 2; c.font = '900 25px Arial Black, Arial'; c.strokeText(name.toUpperCase(), W / 2, H * 0.33, 120); c.fillText(name.toUpperCase(), W / 2, H * 0.33, 120);
   // numero chico adelante y escudo
   c.font = '900 34px Arial Black, Arial'; c.fillText(String(num), W * 0.93, H * 0.36); c.fillText(String(num), W * 0.93 - W, H * 0.36);
   if (crest) c.drawImage(crest, W * 0.03, H * 0.22, 26, 26);
@@ -109,7 +110,9 @@ class Rig {
       put(sh, cast(new THREE.Mesh(capsuleGeo(0.046, 0.04, 0.2, 8), skin)), -0.16);
       const el = j[L + 'ForeArm'] = new THREE.Bone(); el.position.y = -0.29; sh.add(el);
       put(el, cast(new THREE.Mesh(capsuleGeo(0.04, 0.033, 0.19, 8), skin)), -0.12);
-      const hand = j[L + 'Hand'] = new THREE.Mesh(new THREE.SphereGeometry(0.042, 8, 6), info.gk ? lam(kit.gloves || '#f2f2f2') : skin); hand.scale.set(0.75, 1.15, 0.55); hand.position.y = -0.27; el.add(hand);
+      // el arquero usa guantes (mas grandes, con puño de otro color)
+      const hand = j[L + 'Hand'] = new THREE.Mesh(new THREE.SphereGeometry(info.gk ? 0.055 : 0.042, 8, 6), info.gk ? lam(kit.gloves || '#f2f2f2') : skin); hand.scale.set(0.75, 1.15, 0.55); hand.position.y = info.gk ? -0.28 : -0.27; el.add(hand);
+      if (info.gk) put(el, new THREE.Mesh(capsuleGeo(0.04, 0.04, 0.05, 8), lam('#1a1a1a')), -0.215);
       // piernas
       const hip = j[L + 'UpLeg'] = new THREE.Bone(); hip.position.set(s * 0.093, -0.06, 0); hips.add(hip);
       put(hip, cast(new THREE.Mesh(capsuleGeo(0.088, 0.08, 0.14, 10), shorts)), -0.07);
@@ -117,7 +120,11 @@ class Rig {
       const kn = j[L + 'Leg'] = new THREE.Bone(); kn.position.y = -0.43; hip.add(kn);
       put(kn, cast(new THREE.Mesh(capsuleGeo(0.056, 0.04, 0.32, 10), socks)), -0.2);
       const ft = j[L + 'Foot'] = new THREE.Bone(); ft.position.y = -0.44; kn.add(ft);
-      const boot = cast(new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), boots)); boot.scale.set(0.8, 0.68, 2.35); boot.position.set(0, -0.03, 0.05); ft.add(boot);
+      // botin: capellada (capsula acostada), talon y suela oscura con tapones; ~27 cm de largo
+      const upper = cast(new THREE.Mesh(capsuleGeo(0.04, 0.043, 0.15, 10), boots)); upper.rotation.x = Math.PI / 2; upper.scale.set(0.95, 1, 0.78); upper.position.set(0, -0.035, 0.055); ft.add(upper);
+      const heel = new THREE.Mesh(capsuleGeo(0.045, 0.045, 0.03, 10), boots); heel.scale.set(0.95, 1, 0.9); heel.position.set(0, -0.025, -0.03); ft.add(heel);
+      const sole = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.018, 0.24), lam('#20232a')); sole.position.set(0, -0.061, 0.052); ft.add(sole);
+      const swoosh = new THREE.Mesh(new THREE.BoxGeometry(0.088, 0.012, 0.09), lam('#f4f4f4')); swoosh.position.set(0, -0.04, 0.07); ft.add(swoosh); // franja lateral (sin marca)
     }
     this.bake(shirtTex);
     // accesorios de los arbitros: tarjeta (arbitro) y banderin (asistentes) en la mano derecha

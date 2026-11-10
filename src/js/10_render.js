@@ -2,10 +2,11 @@
 // Igual que en Gran Premio 3D: colores en sRGB, tono de cine (ACES), cielo con degrade y sol, y un mapa de
 // entorno (PMREM) hecho con ese cielo para que los materiales tengan reflejos suaves.
 const QUALITY = {
-  baja: { name: 'Baja', pr: 1, shadow: 0, crowd: 0.25, aa: false, aniso: 2, std: false, grass: 2048 },
-  media: { name: 'Media', pr: 1.25, shadow: 1024, crowd: 0.5, aa: true, aniso: 4, std: true, grass: 2048 },
-  alta: { name: 'Alta', pr: 1.5, shadow: 2048, crowd: 0.8, aa: true, aniso: 8, std: true, grass: 4096 },
-  ultra: { name: 'Ultra', pr: 2, shadow: 4096, crowd: 1, aa: true, aniso: 16, std: true, grass: 4096 },
+  // post: 0 nada, 1 color+viñeta+AA, 2 y 3 ademas bloom
+  baja: { name: 'Baja', pr: 1, shadow: 0, crowd: 0.25, aa: false, aniso: 2, std: false, grass: 2048, post: 0 },
+  media: { name: 'Media', pr: 1.25, shadow: 1024, crowd: 0.5, aa: true, aniso: 4, std: true, grass: 2048, post: 1 },
+  alta: { name: 'Alta', pr: 1.5, shadow: 2048, crowd: 0.8, aa: true, aniso: 8, std: true, grass: 4096, post: 2 },
+  ultra: { name: 'Ultra', pr: 2, shadow: 4096, crowd: 1, aa: true, aniso: 16, std: true, grass: 4096, post: 3 },
 };
 function detectQuality() {
   const mobile = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
@@ -23,13 +24,20 @@ const SKIES = {
   dia: { top: '#2f6fd0', hor: '#cfe4f7', gnd: '#3b4a33', sun: '#fff1d6', disk: 1, fog: '#bcd6ee', hemiS: '#dcecff', hemiG: '#4a6a33', hemi: 0.75, sunI: 1.75, sunC: '#fff4e2', sunP: [-45, 70, 50], exp: 1.0 },
   nublado: { top: '#7f8c99', hor: '#c9d0d6', gnd: '#3f4a3a', sun: '#e8e8e8', disk: 0, fog: '#b9c1c8', hemiS: '#e6ecf2', hemiG: '#4a5e3a', hemi: 1.05, sunI: 0.8, sunC: '#f2f2f2', sunP: [-20, 80, 30], exp: 1.05 },
   noche: { top: '#02040b', hor: '#0e1a33', gnd: '#05070a', sun: '#ffffff', disk: 0, stars: 1, fog: '#0b1322', hemiS: '#a9bde0', hemiG: '#1b2a18', hemi: 0.55, sunI: 1.9, sunC: '#f4f6ff', sunP: [-8, 95, 22], exp: 1.05 },
+  // atardecer: sol bajo y anaranjado, sombras largas
+  atardecer: { top: '#2b3f78', hor: '#ffb27a', gnd: '#3a3328', sun: '#ffcf96', disk: 1, fog: '#e7b48e', hemiS: '#ffd9b8', hemiG: '#4d4a2c', hemi: 0.9, sunI: 1.9, sunC: '#ffc488', sunP: [-90, 22, 48], exp: 1.0 },
+  // lluvia: cielo gris oscuro, luz pareja
+  lluvia: { top: '#4b555f', hor: '#8f99a3', gnd: '#30382f', sun: '#d8dde2', disk: 0, fog: '#7d8892', hemiS: '#cfd8e0', hemiG: '#3c4a36', hemi: 1.0, sunI: 0.55, sunC: '#e6ebf0', sunP: [-20, 80, 30], exp: 1.0 },
 };
+// dia/atardecer/noche y soleado/nublado/lluvia (acepta el setup o el formato viejo night/cloudy)
+function envOf(S) { return { tod: S.tod || (S.night ? 'noche' : 'dia'), weather: S.weather || (S.cloudy ? 'nublado' : 'sol') }; }
 
 const R = {
   sun: null, hemi: null, glows: [], sky: null, skyMat: null, envRT: null, pmrem: null,
   init() {
     const q = Q();
-    const renderer = G.renderer = new THREE.WebGLRenderer({ canvas: $('c'), antialias: q.aa, powerPreference: 'high-performance' });
+    // con post-procesado el antialiasing lo hace Post (MSAA en la textura o FXAA): el lienzo no lo necesita
+    const renderer = G.renderer = new THREE.WebGLRenderer({ canvas: $('c'), antialias: q.aa && !q.post, powerPreference: 'high-performance' });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, q.pr));
     renderer.setSize(innerWidth, innerHeight);
     renderer.outputEncoding = THREE.sRGBEncoding;
@@ -71,20 +79,37 @@ const R = {
       G.camera.aspect = innerWidth / innerHeight; G.camera.updateProjectionMatrix();
     });
   },
-  // dia/noche y nublado
-  setEnv(night, cloudy) {
-    const s = G.scene, S = SKIES[night ? 'noche' : cloudy ? 'nublado' : 'dia'], u = this.skyMat.uniforms;
+  // hora del dia y clima
+  setEnv(a, b) {
+    const E = typeof a === 'object' ? envOf(a) : { tod: a ? 'noche' : 'dia', weather: b ? 'nublado' : 'sol' };
+    const night = E.tod === 'noche', rain = E.weather === 'lluvia';
+    this.env = E;
+    const key = night ? 'noche' : rain ? 'lluvia' : E.weather === 'nublado' ? 'nublado' : E.tod === 'atardecer' ? 'atardecer' : 'dia';
+    const s = G.scene, S = Object.assign({}, SKIES[key]), u = this.skyMat.uniforms;
+    if (night && rain) { S.sunI *= 0.8; S.fog = '#121a26'; }
+    if (E.tod === 'atardecer' && E.weather !== 'sol') { S.hor = '#c9a48c'; S.sunC = '#f0c8a0'; }
     u.uTop.value.copy(lin(S.top)); u.uHor.value.copy(lin(S.hor)); u.uGnd.value.copy(lin(S.gnd)); u.uSun.value.copy(lin(S.sun));
     u.uDisk.value = S.disk; u.uStars.value = S.stars || 0;
-    s.background = null; s.fog = new THREE.Fog(lin(S.fog), 220, 900);
+    s.background = null; s.fog = new THREE.Fog(lin(S.fog), rain ? 70 : 220, rain ? 420 : 900); // con lluvia, algo de niebla
     this.hemi.color.copy(lin(S.hemiS)); this.hemi.groundColor.copy(lin(S.hemiG)); this.hemi.intensity = S.hemi;
-    this.sun.color.copy(lin(S.sunC)); this.sun.intensity = S.sunI; this.sun.position.set(...S.sunP);
+    this.sun.color.copy(lin(S.sunC)); this.sun.intensity = S.sunI;
+    this.sunOff = new THREE.Vector3(...S.sunP); this.fitShadow(0, 0, 70);
     u.uDir.value.set(...S.sunP).normalize();
     G.renderer.toneMappingExposure = S.exp;
     for (const g of this.glows) g.visible = !!night;
-    if (Stadium.nightLights) Stadium.nightLights(night);
+    Weather.set(rain, night);
+    NightShadows.set(night);
+    this.prep(G.scene); Stadium.nightLights(night);
     // mapa de entorno para los reflejos
     if (Q().std) { if (this.envRT) this.envRT.dispose(); this.envRT = this.pmrem.fromEquirectangular(this.skyCanvas(S)); s.environment = this.envRT.texture; }
+  },
+  // la camara de sombras sigue a lo que se ve (en vez de cubrir toda la cancha): sombras mas nitidas con el mismo mapa
+  fitShadow(x, z, half) {
+    const sun = this.sun, o = this.sunOff; if (!o) return;
+    const h = half || 34, c = sun.shadow.camera;
+    sun.target.position.set(x, 0, z); sun.position.set(x + o.x, o.y, z + o.z);
+    if (c.right !== h) { c.left = -h; c.right = h; c.top = h * 0.75; c.bottom = -h * 0.75; c.updateProjectionMatrix(); }
+    sun.target.updateMatrixWorld();
   },
   // imagen equirectangular del cielo (para el mapa de entorno): degrade, suelo verde y el resplandor del sol
   skyCanvas(S) {
