@@ -58,30 +58,52 @@ function receive(p) {
     return;
   }
   const rvx = b.vx - p.vel.x, rvz = b.vz - p.vel.z, rel = Math.hypot(rvx, rvz, b.vy * 0.6);
-  const q = 0.5 + p.a.dri / 100 * 0.5, clean = 8 + 17 * q;
-  if (rel > clean && Math.random() < 0.35 + (rel - clean) / 12) {
-    // mal control: la pelota rebota
-    const f = p.fwd();
-    b.vx = p.vel.x * 0.6 - rvx * 0.25 + f.x * 2 + randn() * 1.5; b.vz = p.vel.z * 0.6 - rvz * 0.25 + f.z * 2 + randn() * 1.5;
-    b.vy = Math.max(0, b.vy * 0.2 + Math.random() * 1.5); b.trajDirty = true; G.kickSeq++;
-    touchBy(p); p.controlCd = 0.35; AU.touch();
+  // ---- calidad del primer toque: velocidad y altura de la pelota, habilidad, presion, de espaldas al arco y si va corriendo ----
+  const skill = (p.a.dri * 0.6 + p.a.pas * 0.4) / 100, near = nearestOpp(p), press = clamp((3 - near.d) / 3, 0, 1);
+  const f = p.fwd(), ad = p.team.attackDir, sp = Math.hypot(p.vel.x, p.vel.z);
+  const backToGoal = f.x * ad < -0.3;
+  const diff = rel / 27 + (b.py > 0.5 ? 0.1 + (b.py - 0.5) * 0.12 : 0) + press * 0.3 + (backToGoal ? 0.07 : 0) + sp / 26;
+  const err = clamp(diff - skill * 0.78 + randn() * 0.07, 0, 1.2);
+  // hacia donde la acomoda: el usuario hacia donde apunta; la IA hacia el arco si hay lugar, o la protege lejos del rival
+  let dx = 0, dz = 0, human = G.human && G.human.p === p;
+  if (human) { const mv = Input.move(); if (mv.l > 0.2) { dx = mv.x / mv.l; dz = mv.z / mv.l; } }
+  else if (!p.isGK) {
+    if (press > 0.4 && near.p) { dx = p.pos.x - near.p.pos.x; dz = p.pos.z - near.p.pos.z; const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l; dx = dx * 0.6 + ad * 0.4; }
+    else { dx = ad; dz = -p.pos.z * 0.01; }
+    const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l;
+  }
+  const dist = 0.45 + err * 3.3; // buen toque: 0,5-0,8 m; malo: hasta 4 m
+  const ang = randn() * err * 0.9, ca = Math.cos(ang), sa = Math.sin(ang);
+  if (!dx && !dz) { dx = f.x; dz = f.z; }
+  const ux = dx * ca - dz * sa, uz = dx * sa + dz * ca;
+  p._recvY = b.py;
+  if (err > 0.55) {
+    // mal control: se le va lejos y puede quedar para el rival
+    b.vx = p.vel.x * 0.6 + ux * dist * 1.7 - rvx * 0.15; b.vz = p.vel.z * 0.6 + uz * dist * 1.7 - rvz * 0.15;
+    b.vy = Math.max(0, b.vy * 0.2 + Math.random() * err); b.trajDirty = true; G.kickSeq++;
+    touchBy(p); p.controlCd = 0.3 + err * 0.2; AU.touch();
     if (G.passInfo && G.passInfo.from.team !== p.team) G.passInfo = null;
+    p.action = p.action || { type: 'trap', t: 0, dur: 0.32, contact: 9, fired: true, foot: p.info.foot || 'R', kind: b.py > 0.95 ? 'chest' : b.py > 0.42 ? 'thigh' : 'inside' };
     return;
   }
-  p._recvY = b.py;
   setOwner(p); touchBy(p);
-  // primer toque orientado: el usuario la acomoda hacia donde apunta; la IA hacia adelante
-  let fx = 0, fz = 0;
-  if (G.human && G.human.p === p) { const mv = Input.move(); if (mv.l > 0.2) { fx = mv.x / mv.l * 1.8; fz = mv.z / mv.l * 1.8; } }
-  else if (!p.isGK) { fx = p.team.attackDir * 1.1; }
-  b.vx = p.vel.x * 0.85 + rvx * 0.06 + fx; b.vz = p.vel.z * 0.85 + rvz * 0.06 + fz;
-  // animacion de recepcion (amortigua con el pie)
-  if (!p.action && rel > 2.5) { const hy = p._recvY != null ? p._recvY : b.py; p.action = { type: 'trap', t: 0, dur: 0.32, contact: 9, fired: true, foot: p.info.foot || 'R', kind: hy > 0.95 ? 'chest' : hy > 0.42 ? 'thigh' : rel < 6 ? 'sole' : 'inside' }; }
+  // IA: decide antes de recibir. Pared devuelta de primera, o pase de primera si lo apuran
+  if (!human && !p.isGK && G.match && G.match.state === 'play') {
+    const pi = G.passInfo, mate = pi && pi.from && pi.from.team === p.team ? pi.from : null;
+    if (mate && mate.brain.wall && mate.brain.wall.to === p && G.time - mate.brain.wall.t < 2.5) {
+      const ahead = (mate.pos.x - p.pos.x) * ad, runX = mate.pos.x + ad * 5;
+      if (ahead > 1 && passRisk(p, runX, mate.pos.z, false, mate) < 0.45) { mate.brain.wall = null; startKick(p, 'through', { receiver: mate, power: 0.4 }, true); return; }
+    }
+    if (near.d < 1.4 && Math.random() < 0.5) { const bp = bestPass(p, near.d); if (bp && bp.kind === 'pass' && passRisk(p, bp.m.pos.x, bp.m.pos.z, false, bp.m) < 0.3) { startKick(p, 'pass', { receiver: bp.m, power: 0.4 }, true); return; } }
+  }
+  b.vx = p.vel.x + ux * dist * 1.6 + rvx * 0.04; b.vz = p.vel.z + uz * dist * 1.6 + rvz * 0.04;
+  p.touchHold = G.time + 0.18 + err * 0.4; // durante el primer toque la pelota sigue sola un ratito (no se pega al pie de una)
+  // animacion de recepcion segun como viene
+  if (!p.action && rel > 2.5) { const hy = p._recvY; p.action = { type: 'trap', t: 0, dur: 0.32, contact: 9, fired: true, foot: p.info.foot || 'R', kind: hy > 0.95 ? 'chest' : hy > 0.42 ? 'thigh' : rel < 6 ? 'sole' : 'inside' }; }
   if (b.py > BALL_R + 0.05) b.vy = Math.min(0, b.vy) * 0.3;
   b.wx = b.wy = b.wz = 0; b.trajDirty = true; G.kickSeq++;
   AU.touch();
-}
-// todo toque pasa por aca: sirve para el fuera de juego y los tiros libres indirectos
+}// todo toque pasa por aca: sirve para el fuera de juego y los tiros libres indirectos
 function touchBy(p) { if (G.match && G.match.state === 'play') G.match.involve(p); G.lastTouch = p; }
 
 // conduccion estilo juego de celular: la pelota va pegada al pie, un poco mas adelante cuanto mas rapido corre,
@@ -103,11 +125,12 @@ function dribble(o, h) {
   const ex = tx - b.px, ez = tz - b.pz, err = Math.hypot(ex, ez);
   const gain = err > 0.9 ? 22 : 12; // si se alejo, la trae enseguida
   const dvx = o.vel.x + ex * gain, dvz = o.vel.z + ez * gain;
-  const k = clamp(h * 18 * ctrl, 0, 1);
+  let k = clamp(h * 18 * ctrl, 0, 1);
+  if (o.touchHold > G.time) k *= 0.12; // primer toque: todavia no la domino del todo
   b.vx += (dvx - b.vx) * k; b.vz += (dvz - b.vz) * k;
   // tope: nunca mas rapido que el jugador + un poco (si no, se iria sola)
   const bs = Math.hypot(b.vx, b.vz), cap = sp + 2.5;
-  if (bs > cap) { b.vx *= cap / bs; b.vz *= cap / bs; }
+  if (bs > cap && !(o.touchHold > G.time)) { b.vx *= cap / bs; b.vz *= cap / bs; }
 }
 
 // ---- acciones ----
@@ -137,8 +160,12 @@ function startKick(p, kind, opts, quick) {
   const contact = quick ? Math.min(0.06, t[1]) : t[1] + extra;
   let ty2 = type, dur = t[0] + extra, cont = contact;
   if (p.isGK && G.ball.held === p && type === 'kick') { ty2 = kind === 'pass' ? 'gkthrow' : 'gkvolley'; dur = ty2 === 'gkthrow' ? 0.62 : 0.72; cont = ty2 === 'gkthrow' ? 0.3 : 0.4; }
-  const foot = p.info.foot || 'R';
-  p.action = { type: ty2, kind, t: quick ? Math.max(0, cont - contact) : 0, dur, contact: cont, fired: false, opts, foot, jump: 1, face };
+  // pie: el habil, salvo que la pelota tenga que salir muy para el lado del otro pie (pierna mala = mas error)
+  const pref = p.info.foot || 'R', rel = face == null ? 0 : angWrap(face - p.facing); // + = hacia la izquierda del jugador
+  const weak = (pref === 'R' && rel < -0.65) || (pref === 'L' && rel > 0.65);
+  const foot = weak ? (pref === 'R' ? 'L' : 'R') : pref;
+  const bb = G.ball, ftRel = quick ? Math.hypot(bb.vx - p.vel.x, bb.vz - p.vel.z) : 0;
+  p.action = { type: ty2, kind, t: quick ? Math.max(0, cont - contact) : 0, dur, contact: cont, fired: false, opts, foot, jump: 1, face, turn, weak, ftRel };
   // pie de apoyo: al costado de la pelota (25 cm) y un poquito atras, del lado contrario al pie que patea
   if (ty2 === 'kick' && kind !== 'knock') {
     const b = G.ball, fa = face != null ? face : p.facing, side = foot === 'L' ? -1 : 1;
@@ -171,12 +198,27 @@ function executeKick(p, kind, o) {
   G.owner = null; touchBy(p);
   G.passInfo = { from: p, to: r.receiver || null, x: r.tx, z: r.tz, t: G.time, kind, shot };
   if (shot) { p.stats.shots++; p.team.stats.shots++; G.lastShot = { p, t: G.time, onTarget: false }; }
+  else if (kind === 'pass' && r.receiver && !p.isGK && !(G.human && G.human.p === p) && Math.hypot(r.receiver.pos.x - p.pos.x, r.receiver.pos.z - p.pos.z) < 14 && (p.pos.x * p.team.attackDir) > -15 && Math.random() < 0.45) p.brain.wall = { t: G.time, to: r.receiver }; // tiro la pared
   else if (kind !== 'clear') { p.stats.passes++; p.team.stats.passes++; }
   AU.kick(kind === 'pass' ? 0.25 : kind === 'header' ? 0.3 : clamp(Math.hypot(r.vx, r.vz) / 30, 0.2, 1));
   if (G.match) G.match.onKick(p, kind);
   if (G.human) G.human.onKick(p, r, kind);
 }
 
+// ---- pelota rodando por el pasto (mismo roce que ballStep): velocidad y tiempo despues de D metros ----
+function groundRoll(v0, D) {
+  let v = v0, x = 0, t = 0; const h = 1 / 60;
+  while (x < D && v > 0.05 && t < 8) { v = v / (1 + BP.rollK * h) - BP.rollC * h; x += v * h; t += h; }
+  return { v: x >= D ? v : 0, t };
+}
+// velocidad de salida para que llegue a D metros a la velocidad vArr
+function groundV0(D, vArr) {
+  let lo = vArr, hi = 40;
+  for (let i = 0; i < 18; i++) { const m = (lo + hi) / 2; if (groundRoll(m, D).v < vArr) lo = m; else hi = m; }
+  return hi;
+}
+// velocidad comoda de llegada de un pase rasante: 8 m/s corto, hasta 12 m/s largo
+const passArrive = D => clamp(8 + D * 0.1, 8, 12);
 function laneBlock(p, tx, tz) {
   let pen = 0;
   for (const o of p.team.opp.players) { const d = segDist(p.pos.x, p.pos.z, tx, tz, o.pos.x, o.pos.z); if (d < 1.8) pen += (1.8 - d) / 1.8; }
@@ -221,9 +263,13 @@ function computePass(p, kind, o) {
       const lead = 4 + (o.power || 0.5) * 9;
       tx = rec.pos.x + rx * lead; tz = rec.pos.z + rz * lead;
     } else {
-      const D0 = Math.hypot(rec.pos.x - sx, rec.pos.z - sz);
-      const tEst = lob ? 1.0 + D0 * 0.035 : D0 / (7 + D0 * 0.3);
-      tx = rec.pos.x + rec.vel.x * tEst * 0.85; tz = rec.pos.z + rec.vel.z * tEst * 0.85;
+      // pase adelantado: va adonde VA a estar el compañero (se calcula el tiempo de viaje real 2 veces)
+      tx = rec.pos.x; tz = rec.pos.z;
+      for (let it = 0; it < 2; it++) {
+        const D0 = Math.hypot(tx - sx, tz - sz);
+        const tEst = lob ? 1.0 + D0 * 0.035 : groundRoll(groundV0(D0, passArrive(D0)), D0).t;
+        tx = rec.pos.x + rec.vel.x * tEst * 0.9; tz = rec.pos.z + rec.vel.z * tEst * 0.9;
+      }
     }
   } else {
     const D = kind === 'clear' ? 35 + (o.power || 0.7) * 15 : throwIn ? 8 + (o.power || 0.5) * 14 : 10 + (o.power || 0.5) * (lob ? 35 : 25);
@@ -235,23 +281,29 @@ function computePass(p, kind, o) {
   const pr = pressureOn(p), skill = p.a.pas / 100, f = p.fwd();
   const facing = ((tx - sx) * f.x + (tz - sz) * f.z) / D;
   const dd = teamDiff(team);
-  let err = (0.012 + (1 - skill) * 0.07) * (1 + pr * 0.9) * (facing < 0 ? 1.7 : facing < 0.5 ? 1.25 : 1) * (lob ? 1.2 : 1) * (team.human ? 0.7 : dd.passErr) * (1 + D / 80);
+  // error segun la situacion: habilidad, presion, cuerpo mal orientado (90 grados es lo mas dificil; para atras es facil),
+  // pierna mala, de primera con la pelota viniendo rapido y distancia
+  const ac = p.action || {}, turn = ac.turn || Math.acos(clamp(facing, -1, 1));
+  const bodyK = turn > 2.3 ? 1.1 : 1 + 0.8 * Math.sin(Math.min(turn, Math.PI / 2));
+  let err = (0.012 + (1 - skill) * 0.07) * (1 + pr * 0.9) * bodyK * (ac.weak ? 1.35 : 1) * (1 + (ac.ftRel || 0) / 25) * (lob ? 1.2 : 1) * (team.human ? 0.7 : dd.passErr) * (1 + D / 80);
   if (G.mode === 'menu') err *= 1.1;
   const ang = Math.atan2(tz - sz, tx - sx) + randn() * err;
   const pe = 1 + randn() * err * 0.8;
   let r;
   if (!lob && !throwIn) {
-    const vArr = kind === 'through' ? 4 : clamp(7 + D * 0.15, 7, 12); // pases tensos, que llegan rapido
-    let v0 = vArr + BP.rollK * D; v0 += BP.rollC * D / ((v0 + vArr) / 2);
-    v0 = Math.min(v0 * pe, 32);
+    // la fuerza se calcula con el roce del pasto para que llegue a una velocidad comoda (8-12 m/s)
+    const v0 = Math.min(groundV0(D, kind === 'through' ? 4.5 : passArrive(D)) * pe, 32);
     r = { vx: Math.cos(ang) * v0, vy: 0, vz: Math.sin(ang) * v0, w: null };
   } else {
-    const T = throwIn ? 0.55 + D * 0.035 : kind === 'clear' ? 1.7 + D * 0.015 : kind === 'cross' ? 1.05 + D * 0.03 : 0.95 + D * 0.034;
+    const driven = kind === 'cross' && o.driven;
+    const T = throwIn ? 0.55 + D * 0.035 : kind === 'clear' ? 1.7 + D * 0.015 : driven ? 0.62 + D * 0.02 : kind === 'cross' ? 1.05 + D * 0.03 : 0.95 + D * 0.034;
     const ex = sx + Math.cos(ang) * D * pe, ez = sz + Math.sin(ang) * D * pe;
-    const ty = kind === 'cross' ? 1.3 : throwIn ? 0.6 : BALL_R + 0.2;
+    const ty = driven ? 0.9 : kind === 'cross' ? 1.3 : throwIn ? 0.6 : BALL_R + 0.2;
     const sy = b.held ? b.py : Math.max(b.py, BALL_R);
-    const v = solveLaunch(sx, sy, sz, ex, ty, ez, D / T, null);
-    r = { vx: v.vx, vy: v.vy, vz: v.vz, w: null };
+    // los centros doblan en el aire (efecto Magnus): hacia el arco (cerrado) o hacia afuera (abierto)
+    const w = kind === 'cross' ? { x: 0, y: (o.inswing === false ? -1 : 1) * Math.sign(sz || 1) * Math.sign(team.attackDir) * -(driven ? 13 : 16), z: 0 } : null; // ~1,4 m de curva el alto, ~0,8 m el rasante
+    const v = solveLaunch(sx, sy, sz, ex, ty, ez, D / T, w);
+    r = { vx: v.vx, vy: v.vy, vz: v.vz, w };
   }
   return Object.assign(r, { receiver: rec, tx, tz });
 }
@@ -269,7 +321,9 @@ function computeShot(p, o) {
   const sk = p.a.sho / 100, pr = pressureOn(p), f = p.fwd();
   const fd = (f.x * (gx - sx) + f.z * (aimZ - sz)) / D;
   const dd = teamDiff(team);
-  let err = (0.011 + (1 - sk) * 0.055) * (1 + pr * 0.7) * (fd < 0.3 ? 1.8 : 1) * (1 + Math.max(0, pw - 0.8) * 2.5) * (finesse ? 0.75 : 1) * (team.human ? 1 : dd.shotErr) * (1 + D / 60);
+  const sac = p.action || {}, run = Math.hypot(p.vel.x, p.vel.z);
+  let err = (0.0118 + (1 - sk) * 0.057) * (1 + pr * 0.7) * (fd < 0.3 ? 1.8 : 1) * (1 + Math.max(0, pw - 0.8) * 2.5) * (finesse ? 0.75 : 1) * (team.human ? 1 : dd.shotErr) * (1 + D / 60)
+    * (sac.weak ? 1.4 : 1) * (run > 6 ? 1.25 : 1) * (1 + (sac.ftRel || 0) / 30);
   if (b.py > 0.4) err *= 1.35;
   const ang = Math.atan2(aimZ - sz, gx - sx) + randn() * err;
   ty += randn() * err * D * 0.35 + (pw > 0.88 ? Math.random() * (pw - 0.88) * 9 : 0);
@@ -291,6 +345,7 @@ function computeHeader(p, o) {
   const toGoal = Math.hypot(gx - b.px, b.pz);
   let tx, ty, tz, s;
   if (o.attack && toGoal < 20) { tz = (Math.random() < 0.5 ? -1 : 1) * rand(1, 3.2); tx = gx; ty = rand(0.3, 2.2); s = 13 + p.a.sho / 100 * 5; }
+  else if (o.flick) { const bl = Math.hypot(b.vx, b.vz) || 1; tx = b.px + b.vx / bl * 12; tz = b.pz + b.vz / bl * 12; ty = 1.6; s = 9; } // peinada: sigue la direccion de la pelota
   else if (o.receiver) { tx = o.receiver.pos.x; tz = o.receiver.pos.z; ty = 0.5; s = 11; }
   else { const d = o.dir && (o.dir.x || o.dir.z) ? o.dir : { x: team.attackDir, z: -b.pz * 0.01 }; tx = b.px + d.x * 18; tz = b.pz + d.z * 18; ty = 3; s = 12; }
   const err = (0.04 + (1 - p.a.sho / 100) * 0.12);
