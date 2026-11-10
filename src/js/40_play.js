@@ -29,7 +29,8 @@ function updatePossession(h) {
   let o = G.owner;
   if (o) {
     const fp = o.foot(0.45), d = Math.hypot(b.px - fp.x, b.pz - fp.z);
-    if (d > 1.55 || b.py > 1.15 || o.stun > 0 || (o.action && (o.action.type === 'dive' || o.action.type === 'fall'))) { G.owner = null; o = null; }
+    // (recien controlada de pecho o muslo la pelota todavia esta alta: sigue siendo suya mientras baja al pie)
+    if (d > (o.touchHold > G.time && G.human && G.human.p === o ? 2.1 : 1.55) || b.py > (o.touchHold > G.time ? 2.3 : 1.15) || o.stun > 0 || (o.action && (o.action.type === 'dive' || o.action.type === 'fall'))) { G.owner = null; o = null; }
   }
   if (o) { dribble(o, h); return; }
   let best = null, bd = 1e9;
@@ -40,11 +41,14 @@ function updatePossession(h) {
     if (restart && G.match.restart.taker !== p) continue;
     const fp = p.foot(0.32), d = Math.hypot(b.px - fp.x, b.pz - fp.z);
     let reach = 0.72 + p.a.dri / 100 * 0.25;
+    if (G.human && G.human.p === p) reach += 0.28; // el jugador del usuario la agarra desde un poco mas lejos (mas facil de controlar)
     // cortar un pase rapido del rival es mas dificil que recibir uno propio
     const pi = G.passInfo;
     if (pi && pi.from.team !== p.team && pi.to) { const bs = Math.hypot(b.vx, b.vz); reach *= clamp(1.25 - bs / 16, 0.35, 1) * (0.75 + p.a.def / 100 * 0.35); if (G.time - pi.t < 0.15) reach *= 0.5; }
     if (b.py > 0.75) { if (b.py > 1.7 || p.isGK) continue; reach *= 0.7; }
-    if (d < reach && d < bd) { bd = d; best = p; }
+    // si el jugador del usuario y otro llegan a la vez, la agarra el del usuario
+    const dEff = G.human && G.human.p === p ? d - 0.45 : d;
+    if (d < reach && dEff < bd) { bd = dEff; best = p; }
   }
   if (best) receive(best);
 }
@@ -63,21 +67,23 @@ function receive(p) {
   const f = p.fwd(), ad = p.team.attackDir, sp = Math.hypot(p.vel.x, p.vel.z);
   const backToGoal = f.x * ad < -0.3;
   const diff = rel / 27 + (b.py > 0.5 ? 0.1 + (b.py - 0.5) * 0.12 : 0) + press * 0.3 + (backToGoal ? 0.07 : 0) + sp / 26;
-  const err = clamp(diff - skill * 0.78 + randn() * 0.07, 0, 1.2);
+  let human = G.human && G.human.p === p;
+  // el usuario controla mucho mejor (como en los juegos de celular): menos error y casi nunca se le escapa
+  const err = clamp(diff - skill * 0.78 + randn() * 0.07, 0, 1.2) * (human ? 0.45 : 1);
   // hacia donde la acomoda: el usuario hacia donde apunta; la IA hacia el arco si hay lugar, o la protege lejos del rival
-  let dx = 0, dz = 0, human = G.human && G.human.p === p;
+  let dx = 0, dz = 0;
   if (human) { const mv = Input.move(); if (mv.l > 0.2) { dx = mv.x / mv.l; dz = mv.z / mv.l; } }
   else if (!p.isGK) {
     if (press > 0.4 && near.p) { dx = p.pos.x - near.p.pos.x; dz = p.pos.z - near.p.pos.z; const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l; dx = dx * 0.6 + ad * 0.4; }
     else { dx = ad; dz = -p.pos.z * 0.01; }
     const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l;
   }
-  const dist = 0.45 + err * 3.3; // buen toque: 0,5-0,8 m; malo: hasta 4 m
+  const dist = 0.45 + err * (human ? 1.8 : 3.3); // buen toque: 0,5-0,8 m; malo: hasta 4 m (el usuario, hasta ~1,4 m)
   const ang = randn() * err * 0.9, ca = Math.cos(ang), sa = Math.sin(ang);
   if (!dx && !dz) { dx = f.x; dz = f.z; }
   const ux = dx * ca - dz * sa, uz = dx * sa + dz * ca;
   p._recvY = b.py;
-  if (err > 0.55) {
+  if (err > (human ? 0.5 : 0.55)) {
     // mal control: se le va lejos y puede quedar para el rival
     b.vx = p.vel.x * 0.6 + ux * dist * 1.7 - rvx * 0.15; b.vz = p.vel.z * 0.6 + uz * dist * 1.7 - rvz * 0.15;
     b.vy = Math.max(0, b.vy * 0.2 + Math.random() * err); b.trajDirty = true; G.kickSeq++;
@@ -97,10 +103,10 @@ function receive(p) {
     if (near.d < 1.4 && Math.random() < 0.5) { const bp = bestPass(p, near.d); if (bp && bp.kind === 'pass' && passRisk(p, bp.m.pos.x, bp.m.pos.z, false, bp.m) < 0.3) { startKick(p, 'pass', { receiver: bp.m, power: 0.4 }, true); return; } }
   }
   b.vx = p.vel.x + ux * dist * 1.6 + rvx * 0.04; b.vz = p.vel.z + uz * dist * 1.6 + rvz * 0.04;
-  p.touchHold = G.time + 0.18 + err * 0.4; // durante el primer toque la pelota sigue sola un ratito (no se pega al pie de una)
+  p.touchHold = G.time + (human ? 0.1 + err * 0.25 : 0.18 + err * 0.4); // durante el primer toque la pelota sigue sola un ratito (no se pega al pie de una)
   // animacion de recepcion segun como viene
   if (!p.action && rel > 2.5) { const hy = p._recvY; p.action = { type: 'trap', t: 0, dur: 0.32, contact: 9, fired: true, foot: p.info.foot || 'R', kind: hy > 0.95 ? 'chest' : hy > 0.42 ? 'thigh' : rel < 6 ? 'sole' : 'inside' }; }
-  if (b.py > BALL_R + 0.05) b.vy = Math.min(0, b.vy) * 0.3;
+  if (b.py > BALL_R + 0.05) b.vy = b.py > 0.6 ? -1.5 : Math.min(0, b.vy) * 0.3; // de pecho/muslo: la baja al pie
   b.wx = b.wy = b.wz = 0; b.trajDirty = true; G.kickSeq++;
   AU.touch();
 }// todo toque pasa por aca: sirve para el fuera de juego y los tiros libres indirectos
@@ -234,7 +240,8 @@ function pickReceiver(p, dir, kind, minCos) {
     const cos = (dx * dir.x + dz * dir.z) / d;
     if (cos < (minCos != null ? minCos : 0.42)) continue;
     const ideal = lob ? 30 : kind === 'through' ? 20 : 12;
-    let s = cos * 2.2 - Math.abs(d - ideal) / (lob ? 30 : 22);
+    // el usuario: pesa mas la direccion que apunta (con teclas solo hay 8 direcciones)
+    let s = cos * (G.human && G.human.p === p ? 3.2 : 2.2) - Math.abs(d - ideal) / (lob ? 30 : 22);
     if (!lob) s -= laneBlock(p, m.pos.x, m.pos.z) * 0.7;
     if (p.team.human && !lob) s -= passRisk(p, m.pos.x + m.vel.x * 0.4, m.pos.z + m.vel.z * 0.4, false, m) * 1.2;
     if (m.isGK) s -= 1.2;
@@ -368,18 +375,20 @@ function startTackle(p) {
 function resolveTackle(p) {
   const b = G.ball, fp = p.foot(0.75);
   const bx = b.px - p.pos.x, bz = b.pz - p.pos.z, dB = Math.hypot(bx, bz), fw = p.fwd();
-  if (b.held || dB > 1.75 || b.py > 0.8 || (bx * fw.x + bz * fw.z) / (dB || 1) < 0.2) { p.stun = 0.25; return; }
+  const userT = G.human && G.human.p === p;
+  if (b.held || dB > (userT ? 1.95 : 1.75) || b.py > 0.8 || (bx * fw.x + bz * fw.z) / (dB || 1) < (userT ? 0 : 0.2)) { p.stun = userT ? 0.12 : 0.25; return; }
   const o = G.owner, f = p.fwd();
   if (o && o.team !== p.team) {
     const dd = teamDiff(p.team);
     const behind = (o.pos.x - p.pos.x) * o.fwd().x + (o.pos.z - p.pos.z) * o.fwd().z > 0.3; // de atras: mas dificil
-    const chance = clamp(0.5 + (p.a.def - o.a.dri) / 110 + (p.team.human ? 0.06 : dd.tackle) - (behind ? 0.2 : 0), 0.12, 0.9);
+    const user = G.human && G.human.p === p; // la entrada del usuario sale mejor (mas facil sacarla)
+    const chance = clamp(0.5 + (p.a.def - o.a.dri) / 110 + (user ? 0.2 : p.team.human ? 0.06 : dd.tackle) - (behind ? (user ? 0.1 : 0.2) : 0), 0.12, user ? 0.92 : 0.9);
     if (Math.random() < chance) {
       b.launch(p.vel.x * 0.4 + f.x * 3.2 + randn(), 0, p.vel.z * 0.4 + f.z * 3.2 + randn());
       G.owner = null; touchBy(p); o.stun = 0.45; o.controlCd = 0.4; p.controlCd = 0;
       p.stats.tackles++; p.team.stats.tackles++; AU.touch(); G.passInfo = null;
     } else {
-      p.stun = 0.5;
+      p.stun = user ? 0.28 : 0.5;
       // si no toca la pelota y se lleva al rival: falta
       const close = Math.hypot(o.pos.x - p.pos.x, o.pos.z - p.pos.z) < 1.5;
       if (close && Math.random() < (behind ? 0.55 : 0.2) * (1.15 - p.a.def / 100)) { o.action = { type: 'fall', t: 0, dur: 1.0, contact: 9, fired: true }; o.stun = 1.0; G.owner = null; if (G.match) G.match.foul(p, o, 'tackle'); }

@@ -25,6 +25,13 @@ Juego de fútbol 3D (11 contra 11) para el navegador, del usuario (GitHub `shofe
 - El jugador del usuario acelera 1.45x y gira mas rapido que la IA (31_player).
 - (v6, pedido: "imitá al DLS") Estilo juego de celular: pelota pegada al pie (`dribble` en 40_play, nunca se aleja más de ~1 m), PASE sale al apretar (no al soltar) y nunca va al vacío (busca al compañero más lógico, prefiriendo al libre), pases rasantes más rápidos. Defendiendo: PASE = cambiar jugador, FILTRADO = presionar (mantenido va solo a quitar), TIRO = barrida. Filtrado desde la banda en el último tercio = centro. En el celular solo 3 botones (PASE, FILTRADO, TIRO) y se corre con el joystick a fondo. Se imita cómo se juega, no la imagen del DLS.
 
+- (2026-11-10, pedido: "es difícil... pases, agarrar la pelota, sacarla" + "que el más cerca de donde cae la pelota se ponga como jugador") Ayudas solo para el jugador del usuario (la IA igual):
+  - Cambio automático (43_human, `autoT`/`autoSel`): con la pelota suelta o en el aire (>2,5 m/s), cada 0,12 s el control pasa al compañero que llega primero (`interceptFor`); el destinatario del pase tiene prioridad salvo que otro llegue 0,6 s antes. Sin tocar nada va solo a buscarla (pica si hay un rival a menos de 4 m); si apunta más o menos hacia la pelota suelta, va derecho al punto donde la agarra.
+  - Recepción: alcance +0,28 m, gana si llega a la vez que otro, error del primer toque ×0,45 (máx ~1,4 m), recién controlada de pecho/muslo sigue siendo suya mientras baja (alto hasta 2,3 m, distancia 2,1 m durante `touchHold`).
+  - Entradas del usuario: +0,2 de probabilidad, alcance 1,95 m, sin exigir estar de frente, se recupera más rápido si falla.
+  - Pases: la dirección apuntada pesa más en `pickReceiver` (3,2 en vez de 2,2).
+  - Medido con `HUMTEST(20)`: recibir 16-17→18-19/20, quitar en 5 s 15→15-18/20, cambio al que la toca 8→16-17/20, pase al que apunta 16→18/20.
+
 ## Movimiento y pases (v7, plan por etapas del usuario)
 - Etapa 1 (auditoría, medido en partidos IA vs IA): aceleraciones de 13-17 m/s², giros de 12 m/s² laterales, 38% corriendo de costado, arranques/frenadas 22 por segundo, cuerpo a 71° del pase.
 - Etapa 2: `Player.update` separa aceleración longitudinal (arranque que se apaga cerca de la máxima) y lateral (giro limitado por la velocidad); cambio >115° = frena primero. `p.calm` (reubicarse) acelera/frena suave. `moveTo`: estacionamiento con histéresis (`brain.parked`), esquiva a los que tiene adelante, trote para reubicarse. Resultado: vel. media 2,4 m/s, aceleración típica 1,4 m/s², giro P95 7,4 m/s², 0→7 m/s en 1 s.

@@ -58,6 +58,25 @@ class Human {
     }
     if (r && r.kickoff) { p.want.x = p.want.z = 0; return; }
     const b = G.ball;
+    // cambio automatico: con la pelota suelta o en el aire (pelotazo, despeje, rebote, pase del rival), el control pasa
+    // al compañero que llega primero a donde va a caer (el destinatario del pase tiene prioridad salvo que otro llegue mucho antes)
+    this.autoT = (this.autoT || 0) - h; this.autoChase = false;
+    if (!G.owner && !b.held && m.state === 'play' && b.speed > 2.5) {
+      if (this.autoT <= 0) {
+        this.autoT = 0.12;
+        let best = null, bt = 1e9, mine = 1e9;
+        for (const q of this.team.players) {
+          if (q.isGK || q.stun > 0) continue;
+          const it = interceptFor(q, true), t = it.t + Math.hypot(it.x - q.pos.x, it.z - q.pos.z) * 0.015;
+          if (q === p) mine = t;
+          if (t < bt) { bt = t; best = q; }
+        }
+        const pi = G.passInfo, toMe = pi && pi.to === p && pi.from.team === this.team;
+        if (best && best !== p && mine - bt > (toMe ? 0.6 : 0.25) && G.time - this.lastSwitch > 0.35) { this.select(best); this.autoSel = best; return; }
+        this.autoSel = best === p ? p : null;
+      }
+      this.autoChase = this.autoSel === p;
+    }
     // cambio de jugador
     this.switchCd -= h;
     if (Input.hit('switch') && this.switchCd <= 0) { const c = this.bestCandidate(true); if (c) this.select(c); this.switchCd = 0.2; return; }
@@ -66,11 +85,20 @@ class Human {
     p.sprint = sprint && mv.l > 0.1;
     const sp = p.sprint ? p.vmax : p.vmax * 0.66 * Math.max(0.35, mv.l);
     p.wantFace = null;
-    if (mv.l > 0.1) { p.want.x = mv.x / Math.max(mv.l, 0.01) * sp * Math.min(1, mv.l * 1.2); p.want.z = mv.z / Math.max(mv.l, 0.01) * sp * Math.min(1, mv.l * 1.2); }
+    const pi = G.passInfo, loose = !G.owner && !b.held;
+    const goesForIt = loose && ((pi && pi.to === p && G.time - pi.t < 4) || this.autoChase);
+    if (mv.l > 0.1) {
+      let ux = mv.x / Math.max(mv.l, 0.01), uz = mv.z / Math.max(mv.l, 0.01);
+      // ayuda: si apunta mas o menos hacia la pelota suelta (o la que le llega), el jugador va derecho a donde la puede agarrar
+      if (loose && (goesForIt || Math.hypot(b.px - p.pos.x, b.pz - p.pos.z) < 7)) {
+        const it = interceptFor(p, true), ix = it.x - p.pos.x, iz = it.z - p.pos.z, il = Math.hypot(ix, iz);
+        if (il > 0.3 && (ux * ix + uz * iz) / il > 0.6) { ux = ix / il; uz = iz / il; }
+      }
+      p.want.x = ux * sp * Math.min(1, mv.l * 1.2); p.want.z = uz * sp * Math.min(1, mv.l * 1.2);
+    }
     else {
-      // sin tocar nada: si le viene un pase, va a buscarlo; si no, se queda mirando la pelota
-      const pi = G.passInfo;
-      if (!G.owner && pi && pi.to === p && G.time - pi.t < 4) chase(p, false);
+      // sin tocar nada: si le viene un pase o es el que llega primero a la pelota suelta, va a buscarla solo
+      if (goesForIt) chase(p, (this.autoChase && !(pi && pi.to === p)) || nearestOpp(p).d < 4); // con un rival cerca, pica a buscarla
       else { p.want.x = 0; p.want.z = 0; if (G.owner !== p) faceBall(p); }
     }
     const mine = G.owner === p;
