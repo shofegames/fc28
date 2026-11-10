@@ -56,10 +56,31 @@ function startMatch() {
   if (!store.get('fc28_seenHelp', false)) { store.set('fc28_seenHelp', true); setTimeout(() => { if (G.mode === 'match') UI.help(true); }, 2800); }
 }
 function applyQuality() {
-  const q = Q();
-  G.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, q.pr));
-  G.renderer.setSize(innerWidth, innerHeight);
+  const q = Q(), r = G.renderer;
+  r.setPixelRatio(Math.min(window.devicePixelRatio || 1, q.pr));
+  r.setSize(innerWidth, innerHeight);
+  // sombras: cambia el tamaño del mapa (o las apaga) sin recargar
+  const sh = R.sun.shadow;
+  if (q.shadow && sh.mapSize.x !== q.shadow) { if (sh.map) { sh.map.dispose(); sh.map = null; } sh.mapSize.set(q.shadow, q.shadow); }
+  if (!!q.shadow !== r.shadowMap.enabled) { r.shadowMap.enabled = !!q.shadow; R.sun.castShadow = !!q.shadow; G.scene.traverse(o => { if (o.material) [].concat(o.material).forEach(m => m.needsUpdate = true); }); }
 }
+// calidad automatica: si en el partido anda a menos de 45 fps durante 8 s, baja un nivel (y avisa)
+const AutoQ = {
+  t: 0, n: 0, slow: 0,
+  update(dt) {
+    if (CFG.autoQ === false || G.mode !== 'match' || G.paused || document.hidden || (G.match && G.match.state === 'replay')) { this.t = 0; this.n = 0; return; }
+    this.t += dt; this.n++;
+    if (this.t < 4) return;
+    const fps = this.n / this.t; this.t = 0; this.n = 0;
+    if (fps >= 45) { this.slow = 0; return; }
+    if (++this.slow < 2) return;
+    this.slow = 0;
+    const order = Object.keys(QUALITY), i = order.indexOf(CFG.quality);
+    if (i <= 0) return;
+    CFG.quality = order[i - 1]; saveCfg(); applyQuality();
+    Hud.info('CALIDAD AUTOMÁTICA: ' + Q().name.toUpperCase()); setTimeout(() => { if (!G.match || !G.match.restart) Hud.info(null); }, 2500);
+  },
+};
 
 // los jugadores no se atraviesan y no salen de los limites
 function separate() {
@@ -103,7 +124,11 @@ function step(h) {
 let last = performance.now(), acc = 0, fpsT = 0, fpsN = 0;
 function loop(now) {
   requestAnimationFrame(loop);
-  let dt = (now - last) / 1000; last = now; if (dt > 0.1) dt = 0.1;
+  let dt = (now - last) / 1000;
+  // ahorro de bateria: como mucho 60 cuadros por segundo jugando y 30 en los menus y la pausa
+  if (CFG.saver) { const cap = G.mode === 'match' && !G.paused ? 1 / 60 : 1 / 30; if (dt < cap - 0.003) return; }
+  last = now; if (dt > 0.1) dt = 0.1;
+  AutoQ.update(dt);
   if (!G.paused && G.match && G.match.state === 'replay') { Replay.update(dt); render(dt, Replay.alpha, true); return; }
   if (!G.paused && G.match) {
     acc += dt; let n = 0;
@@ -115,12 +140,20 @@ function loop(now) {
   fpsT += dt; fpsN++;
   if (fpsT > 0.5) { if (CFG.showFps) $('fps').textContent = Math.round(fpsN / fpsT) + ' FPS'; fpsT = 0; fpsN = 0; if (G.mode === 'menu') UI.homeCard(); }
 }
+let renderN = 0;
 function render(dt, alpha, replay) {
-  for (const p of G.players) {
-    const r = p.rig.root;
+  // jugadores lejanos de la camara (o fuera de cuadro): animacion con menos detalle y a la mitad de cuadros (escalonado)
+  const cp = G.camera.position; renderN++;
+  for (let i = 0; i < G.players.length; i++) {
+    const p = G.players[i], rig = p.rig, r = rig.root;
     r.position.set(lerp(p.prev.x, p.pos.x, alpha), 0, lerp(p.prev.z, p.pos.z, alpha));
     r.rotation.y = p.facing;
-    if (dt > 0) p.rig.animate(dt, p);
+    if (dt > 0) {
+      const far = Math.hypot(r.position.x - cp.x, r.position.z - cp.z) > 40 && !replay && Cam.mode !== 'goal';
+      rig.lod = far;
+      rig.acc = (rig.acc || 0) + dt;
+      if (!far || (renderN + i) % 2 === 0) { rig.animate(Math.min(rig.acc, 0.05), p); rig.acc = 0; }
+    }
   }
   if (G.match) for (const p of G.match.leaving) { p.rig.root.position.set(p.pos.x, 0, p.pos.z); p.rig.root.rotation.y = p.facing; if (dt > 0) p.rig.animate(dt, p); }
   Refs.render(alpha, dt);
@@ -143,6 +176,8 @@ function boot() {
   Input.init();
   R.init();
   Pitch.build(); Goals.build(); Stadium.build();
+  // todo lo construido hasta aca no se mueve: se calcula su matriz una vez y no en cada cuadro (salvo luces)
+  G.scene.traverse(o => { if (o.isLight || o === R.sun.target) return; o.updateMatrix(); o.matrixAutoUpdate = false; });
   G.ball = new Ball();
   R.prep(G.scene);
   UI.init();

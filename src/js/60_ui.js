@@ -162,10 +162,12 @@ const UI = {
       seg('Teclas', CFG.scheme, schemes, v => { CFG.scheme = v; if (SCHEMES[v]) CFG.keys = Object.assign({}, SCHEMES[v].keys); }) +
       seg('Controles táctiles', CFG.touch, [['auto', 'Auto'], ['on', 'Sí'], ['off', 'No']], v => { CFG.touch = v; }) +
       seg('Calidad gráfica', CFG.quality, Object.keys(QUALITY).map(k => [k, QUALITY[k].name]), v => { CFG.quality = v; applyQuality(); }) +
+      seg('Calidad automática', CFG.autoQ !== false, [[true, 'Sí'], [false, 'No']], v => { CFG.autoQ = v === 'true'; }) +
+      seg('Ahorro de batería', !!CFG.saver, [[false, 'No'], [true, 'Sí']], v => { CFG.saver = v === 'true'; }) +
       seg('Cámara', CFG.cam, CAM_PRESETS.map((c, i) => [i, c.name]), v => { CFG.cam = Number(v); }) +
       seg('Volumen', Math.round(CFG.volume * 4) / 4, [[0, '0'], [0.25, '25'], [0.5, '50'], [0.75, '75'], [1, '100']], v => AU.setVolume(Number(v))) +
       seg('Mostrar FPS', CFG.showFps, [[false, 'No'], [true, 'Sí']], v => { CFG.showFps = v === 'true'; $('fps').classList.toggle('hidden', !CFG.showFps); }) +
-      `<p class="cnote">Baja/Media/Alta/Ultra cambian la resolución, las sombras y el público. Las sombras y el antialiasing se aplican del todo al recargar la página.</p>`;
+      `<p class="cnote">Baja/Media/Alta/Ultra cambian la resolución, las sombras, los efectos y el público. El público y el antialiasing se aplican del todo al recargar la página. Calidad automática: si el partido anda lento, baja un nivel sola. Ahorro de batería: máximo 60 cuadros por segundo jugando y 30 en los menús.</p>`;
     const alt = altKeys();
     $('cKeys').innerHTML = Object.keys(DEFAULT_KEYS).map(k => `<div class="crow2"><span>${KEY_NAMES[k]}${alt[k] ? ' <small style="color:var(--muted)">(también ' + keyLabel(alt[k]) + ')</small>' : ''}</span><button class="keyb" data-k="${k}">${keyLabel(CFG.keys[k])}</button></div>`).join('');
     $('cKeys').querySelectorAll('.keyb').forEach(b => b.onclick = () => {

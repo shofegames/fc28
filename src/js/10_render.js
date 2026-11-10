@@ -51,11 +51,10 @@ const R = {
     this.hemi = new THREE.HemisphereLight(0xdcecff, 0x3b5a2a, 0.75); scene.add(this.hemi);
     const sun = this.sun = new THREE.DirectionalLight(0xffffff, 1.5);
     sun.position.set(-30, 70, 40); sun.target.position.set(0, 0, 0);
-    if (q.shadow) {
-      sun.castShadow = true; sun.shadow.mapSize.set(q.shadow, q.shadow);
-      const c = sun.shadow.camera; c.left = -64; c.right = 64; c.top = 44; c.bottom = -44; c.near = 10; c.far = 200;
-      sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.025; sun.shadow.radius = 2;
-    }
+    // (se configura siempre: la calidad automatica puede prender o apagar las sombras sin recargar)
+    sun.castShadow = !!q.shadow; sun.shadow.mapSize.set(q.shadow || 1024, q.shadow || 1024);
+    { const c = sun.shadow.camera; c.left = -64; c.right = 64; c.top = 44; c.bottom = -44; c.near = 10; c.far = 200; }
+    sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.025; sun.shadow.radius = 2;
     scene.add(sun); scene.add(sun.target);
     // cielo: degrade + sol + estrellas de noche
     this.skyMat = new THREE.ShaderMaterial({
@@ -101,7 +100,7 @@ const R = {
     NightShadows.set(night);
     this.prep(G.scene); Stadium.nightLights(night);
     // mapa de entorno para los reflejos
-    if (Q().std) { if (this.envRT) this.envRT.dispose(); this.envRT = this.pmrem.fromEquirectangular(this.skyCanvas(S)); s.environment = this.envRT.texture; }
+    if (Q().std) { if (this.envRT) this.envRT.dispose(); const sky = this.skyCanvas(S); this.envRT = this.pmrem.fromEquirectangular(sky); sky.dispose(); s.environment = this.envRT.texture; }
   },
   // la camara de sombras sigue a lo que se ve (en vez de cubrir toda la cancha): sombras mas nitidas con el mismo mapa
   fitShadow(x, z, half) {

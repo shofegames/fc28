@@ -12,7 +12,10 @@ class Human {
     this.dirG = new THREE.Group(); this.dirG.add(this.dir); this.dir.position.z = 0.95;
     G.scene.add(this.ring); G.scene.add(this.arrow); G.scene.add(this.dirG);
   }
-  dispose() { for (const m of [this.ring, this.arrow, this.dirG]) G.scene.remove(m); }
+  dispose() {
+    for (const m of [this.ring, this.arrow, this.dirG]) G.scene.remove(m);
+    for (const m of [this.ring, this.arrow, this.dir]) { m.geometry.dispose(); m.material.dispose(); } // (el material del anillo y la flecha de direccion es el mismo: dispose dos veces no hace nada)
+  }
   select(p) {
     if (!p || p === this.p || p.isGK) return;
     if (this.p) this.p.want.x = this.p.want.z = 0;

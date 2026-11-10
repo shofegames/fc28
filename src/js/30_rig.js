@@ -73,7 +73,7 @@ class Rig {
     const sleeve = kit.pattern === 'sleeves' ? lam(kit.shirt2) : lam(kit.shirt);
     const cast = m => { m.castShadow = true; return m; };
     const body = j.Body = new THREE.Bone(); body.position.y = 0.99; root.add(body);
-    const blob = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.1), blobMat()); blob.rotation.x = -Math.PI / 2; blob.position.y = 0.02; blob.renderOrder = 1; blob.userData.noBake = true; root.add(blob);
+    const blob = new THREE.Mesh(_geoCache.blob || (_geoCache.blob = new THREE.PlaneGeometry(1.1, 1.1)), blobMat()); // compartida por todos blob.rotation.x = -Math.PI / 2; blob.position.y = 0.02; blob.renderOrder = 1; blob.userData.noBake = true; root.add(blob);
     const hips = j.Hips = new THREE.Bone(); body.add(hips);
     const pelvis = cast(new THREE.Mesh(latheGeo('pelvis', [[0.0001, -0.12], [0.13, -0.1], [0.155, -0.02], [0.15, 0.06], [0.0001, 0.07]]), shorts));
     pelvis.scale.set(1.18, 1, 0.85); hips.add(pelvis);
@@ -178,7 +178,10 @@ class Rig {
     const mat = Q().std ? new THREE.MeshStandardMaterial({ map: shirtTex, vertexColors: true, skinning: true, roughness: 0.72, metalness: 0, envMapIntensity: 0.6 })
       : new THREE.MeshLambertMaterial({ map: shirtTex, vertexColors: true, skinning: true });
     mat.userData.keep = true; mat.userData.lin = true;
-    const sm = new THREE.SkinnedMesh(geo, mat); sm.castShadow = true; sm.frustumCulled = false;
+    // esfera que contiene cualquier pose (estiradas y barridas incluidas): asi se puede descartar al jugador que no esta
+    // en camara (ni en la zona de sombras) en vez de dibujar siempre a los 25
+    geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0.9, 0), 1.75);
+    const sm = new THREE.SkinnedMesh(geo, mat); sm.castShadow = true; sm.frustumCulled = true;
     root.add(sm); root.updateMatrixWorld(true);
     sm.bind(new THREE.Skeleton(bones));
     for (const m of parts) m.parent.remove(m);
@@ -186,6 +189,13 @@ class Rig {
   }
   dispose() {
     if (this.mesh) { this.mesh.geometry.dispose(); this.shirtMat.map.dispose(); this.shirtMat.dispose(); this.mesh.skeleton.dispose(); }
+    // accesorios propios (tarjeta, banderin): las geometrias de la cache y los materiales compartidos (lam) no se tocan
+    const cached = new Set(Object.values(_geoCache));
+    this.root.traverse(o => {
+      if (o === this.mesh || !o.isMesh) return;
+      if (o.geometry && !cached.has(o.geometry)) o.geometry.dispose();
+      if (o.material && o.material !== _blob && !o.material.userData.hex) o.material.dispose();
+    });
     if (this.root.parent) this.root.parent.remove(this.root);
   }
   // calcula y aplica la pose segun el estado del jugador
@@ -458,7 +468,7 @@ class Rig {
     const l1 = 0.43, l2 = 0.44, maxD = (l1 + l2) * 0.995, w = Lg.w;
     let rx = 0, rz = 0, kneeA = 0;
     // se resuelve y se corrige 2 veces midiendo donde quedo el tobillo de verdad (asi el pie apoyado no tiembla)
-    const iters = Q().std ? 6 : 3; // en calidad Baja (celulares viejos) menos pasadas
+    const iters = this.lod ? 2 : Q().std ? 6 : 3; // en calidad Baja (celulares viejos) y en jugadores lejanos, menos pasadas
     for (let it = 0; it < iters; it++) {
       let dx = ax - up.position.x, dy = ay - up.position.y, dz = az - up.position.z, D = Math.hypot(dx, dy, dz);
       if (D > maxD) { const k = maxD / D; dx *= k; dy *= k; dz *= k; D = maxD; }

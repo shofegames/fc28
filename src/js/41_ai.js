@@ -44,9 +44,10 @@ function moveTo(p, x, z, mode, arrive) {
 function faceBall(p) { const b = G.ball; p.wantFace = Math.atan2(b.px - p.pos.x, b.pz - p.pos.z); }
 
 // asigna roles por equipo: quien va a la pelota, quien presiona, quien cubre, quien da apoyo
-function assignRoles() {
+function assignRoles(only) {
   const b = G.ball, o = G.owner;
   for (const t of G.teams) {
+    if (only && t !== only) continue;
     const prevC = t.chaser, prevP = t.presser, prevS = t.support;
     t.chaser = t.presser = t.cover = null; t.support = [];
     const field = t.players.filter(p => !p.isGK);
@@ -242,7 +243,8 @@ function supportSpot(p, c) {
   return best || { x: p.pos.x, z: p.pos.z };
 }
 function aiUpdate(h) {
-  if (G.frame % 2 === 0) assignRoles();
+  // roles: un equipo por cuadro (cada equipo se actualiza cada 2 cuadros, alternados); si cambio la posesion, los dos ya
+  if (G.owner !== aiUpdate.lastOwner) { aiUpdate.lastOwner = G.owner; assignRoles(); } else assignRoles(G.teams[G.frame % 2]);
   const human = G.human ? G.human.p : null;
   for (const p of G.players) {
     if (G.match.locked(p)) continue; // el que saca lo maneja el partido
@@ -289,7 +291,10 @@ function brain(p, h) {
       moveTo(p, o.pos.x + dx / dl * 6, o.pos.z + dz / dl * 6); faceBall(p); return;
     }
   }
-  const t = formationTarget(p), B = p.brain;
+  // la posicion ideal se recalcula cada 0,1 s (escalonado entre jugadores); en el medio se usa la ultima
+  const B = p.brain;
+  if (!B.ft || (G.frame + p.slot * 2 + team.side) % 6 === 0) B.ft = formationTarget(p);
+  const t = B.ft;
   if (B.tx == null || Math.hypot(B.tx - t.x, B.tz - t.z) > 12) { B.tx = t.x; B.tz = t.z; }
   B.tx = damp(B.tx, t.x, 2.5, DT); B.tz = damp(B.tz, t.z, 2.5, DT);
   // si ya esta cerca de su lugar, se queda (no da pasitos todo el tiempo)

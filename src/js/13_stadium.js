@@ -110,9 +110,23 @@ const Stadium = {
     scr.position.set(-(61 + back - 17.5 + 1.2), roofY - 5, 0); scr.rotation.y = Math.PI / 2; scene.add(scr);
     const frame = new THREE.Mesh(new THREE.BoxGeometry(0.6, 8.3, 20.8), dark); frame.position.set(scr.position.x - 0.4, scr.position.y, 0); scene.add(frame);
     this.drawScreen();
+    this.mergeStand();
     this.crowd(seats);
     this.makeFlags(flags);
     this.makeSmoke();
+  },
+  // une las ~300 piezas de las tribunas (escalones, paredes, techos, vigas) en una malla por material
+  mergeStand() {
+    const g = this.standGroup; g.updateMatrixWorld(true);
+    const byMat = new Map();
+    g.traverse(o => { if (o.isMesh) { if (!byMat.has(o.material)) byMat.set(o.material, []); byMat.get(o.material).push(o); } });
+    const old = []; g.traverse(o => { if (o !== g) old.push(o); });
+    for (const o of old) if (o.parent) o.parent.remove(o);
+    for (const [mat, list] of byMat) {
+      const geos = list.map(m => { const gg = (m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone()); gg.applyMatrix4(m.matrixWorld); return gg; });
+      const merged = mergeGeos(geos); geos.forEach(x => x.dispose()); list.forEach(m => m.geometry.dispose());
+      const mesh = new THREE.Mesh(merged, mat); mesh.receiveShadow = true; g.add(mesh);
+    }
   },
   // ---- publico: UNA malla instanciada (torso + cabeza), cabeza color piel con un atributo propio ----
   crowd(seats) {
