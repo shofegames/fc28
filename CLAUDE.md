@@ -67,6 +67,13 @@ Juego de fútbol 3D (11 contra 11) para el navegador, del usuario (GitHub `shofe
 - Pérdidas de memoria arregladas: sombra de los pies (ahora geometría compartida), tarjeta/banderín de los árbitros (`Rig.dispose` libera accesorios), marcador del jugador humano (`Human.dispose`), textura del cielo en cada `setEnv`. 10 partidos seguidos: geometrías 122, texturas 75 y objetos 565 fijos (antes +32 geometrías y +1 textura por partido).
 - Medido: CPU de lógica+animación 0,57→0,34 ms por cuadro (IA 0,07→0,03, animación 0,43→0,20). Dibujos/triángulos (1280×720, cámara TV): Baja 94→61 / 354k→322k; Media 132→113 / 719k→688k; Alta 138→104 / 1,01M→964k; Ultra 137→105 / 1,18M→1,15M.
 
+## Revisión final (etapa 10, 2026-11-09)
+- `CHECK10(halfMin, segs)` (partido vigilado en tramos: NaN, errores, saques que no se hacen, jugadores trabados, pelota afuera/bajo el piso/que atraviesa la red) y `CONTROLS10()` (pase, remate, cambiar y barrida con flechas, WASD, WASD+mouse, JKL, joystick simulado y táctil). 4 partidos (Baja noche con lluvia, Media atardecer, Alta día, Ultra nublado): 0 errores, 0 NaN, 0 trabados, 0 pelotas que atraviesan. Controles: pase, remate y barrida 4/4 en los 6; cambiar 2-4/4 (no cambia si el elegido ya es el mejor).
+- Celular (844×390): en la salida de los equipos se esconden los botones (tapaban las formaciones) y se saltea tocando la pantalla.
+- v8 → ahora (Alta, cámara TV): 115→101 dibujos, 1,46M→0,97M triángulos.
+- Para comparar con versiones viejas: compilar en un `git worktree` temporal y cargar `src/dev/tools.js` con `fetch('/tools_dev.js')` + `__e` si esa versión no lo incluía.
+- Pendiente para después: más goles de la CPU (~1,2 por partido de 3 min; casi no llega al área chica), medir fps reales con el panel visible y en un celular de verdad, briznas de pasto 3D, oclusión ambiental, ropa embarrada, chilena, dejar pasar la pelota, tropezones, arquero achicando agachado, torneos, modelos GLB.
+
 - Ojo: no editar fuentes con `Get-Content`/`Set-Content` de PowerShell 5.1 (lee UTF-8 como ANSI y rompe los acentos); usar la herramienta Edit o .NET con UTF-8 sin BOM.
 
 - Herramientas de prueba en `src/dev/tools.js` (solo en `-Dev`): `ADV`, `SNAP`, `SHOT`, `GRID`, `POSE`, `CAMAT`, `PASSAUD(partidos, minPorTiempo)`, `AIAUD(partidos, min)`, `GKTEST(distancias, n)`, `SCENE8()` + `PHOTOS8(tag)` (6 fotos fijas) y `PERF8(n)` (dibujos, triángulos y ms a 1280×720). Los tests que llaman `startMatch()` tienen que saltear la salida con `G.match.endWalkout()`. Más de 2 partidos por llamada se corta por tiempo: usar `AIAUD(2,3)` varias veces. Las fotos quedan en `dev/`.

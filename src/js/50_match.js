@@ -32,8 +32,14 @@ class Match {
       });
     });
     G.ball.place(0, 0); G.owner = null;
+    // en el celular: sin botones durante la salida (taparian las formaciones) y se saltea tocando la pantalla
+    Touch.show(false); this.tapSkip = false;
+    this._tap = () => { if (this.timer > 0.6) this.tapSkip = true; };
+    addEventListener('pointerdown', this._tap);
   }
   endWalkout() {
+    if (this._tap) { removeEventListener('pointerdown', this._tap); this._tap = null; }
+    if (!this.attract && G.mode === 'match') Touch.show(true);
     Hud.lineup(false); this.walk = null;
     this.setKickoff(this.firstKick); this.state = 'intro'; this.timer = 0; Cam.intro();
   }
@@ -210,7 +216,7 @@ class Match {
     const st = this.state;
     if (st === 'walkout') {
       if (this.timer > 5.2 && !this.lineupOn) { this.lineupOn = true; Hud.lineup(true); AU.cheer(0.7); }
-      const skip = this.timer > 0.6 && (Input.hit('pass') || Input.hit('shoot') || Input.hit('action') || Input.down.has('Enter'));
+      const skip = this.timer > 0.6 && (Input.hit('pass') || Input.hit('shoot') || Input.hit('action') || Input.down.has('Enter') || this.tapSkip);
       if (this.timer > 11 || skip) { this.lineupOn = false; this.endWalkout(); }
       return;
     }

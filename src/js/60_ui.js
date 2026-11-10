@@ -60,7 +60,7 @@ const Hud = {
       const list = t.players.slice().sort((a, b) => (b.isGK - a.isGK) || a.info.num - b.info.num);
       return `<div class="lu" style="--c:${t.kit.shirt}"><div class="luh"><img src="${crestURL(t.club)}" alt=""><div><b>${t.club.name.toUpperCase()}</b><span>${t.formKey} · ${(TACTICS[t.tactic] && TACTICS[t.tactic].name || t.tactic).toString().toUpperCase()}</span></div></div>` +
         list.map(p => `<div class="lup"><i>${p.info.num}</i>${p.info.last.toUpperCase()}${p.isGK ? ' <em>ARQ</em>' : ''}</div>`).join('') + '</div>';
-    }).join('') + '<p class="luk">tocá PASE para empezar</p>';
+    }).join('') + `<p class="luk">${Touch.on ? 'tocá la pantalla para empezar' : 'apretá PASE para empezar'}</p>`;
     el.classList.remove('hidden');
   },
   info(t) { const el = $('sbInfo'); if (!t) { el.classList.remove('on'); return; } el.textContent = t; el.classList.add('on'); },
