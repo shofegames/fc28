@@ -168,7 +168,7 @@ function formationTarget(p) {
     // atacando: cada uno busca un espacio libre cerca de su lugar donde le puedan pasar la pelota
     const B = p.brain;
     B.supT -= DT;
-    if (!B.sup || B.supT <= 0) { B.sup = team.support.includes(p) ? supportSpot(p, G.owner) : spaceNear(p, G.owner, wx, wz); B.supT = rand(0.45, 0.8); }
+    if (!B.sup || B.supT <= 0) { B.sup = team.support.includes(p) ? supportSpot(p, G.owner) : spaceNear(p, G.owner, wx, wz); B.supT = rand(0.45, 0.8); if (Math.random() < 0.1) p.askT = G.time + 0.9; } // a veces levanta la mano para pedirla
     const k = team.support.includes(p) ? 0.8 : 0.65;
     wx = lerp(wx, B.sup.x, k); wz = lerp(wz, B.sup.z, k);
   }
@@ -218,7 +218,7 @@ function aiUpdate(h) {
 }
 function brain(p, h) {
   const team = p.team, b = G.ball, o = G.owner, st = G.match.state;
-  p.sprint = false; p.wantFace = null;
+  p.sprint = false; p.wantFace = null; p.jockey = false;
   if (st === 'goal' || st === 'halftime' || st === 'fulltime' || st === 'intro') { idleBrain(p); return; }
   const r = G.match.restart;
   if (r) { // en saques: el que saca va a la pelota, los demas a su lugar
@@ -293,6 +293,7 @@ function press(p, o, h) {
   const stand = d > 4 ? 1.0 : 1.7;
   moveTo(p, o.pos.x + dx / dl * stand + o.vel.x * 0.3, o.pos.z + dz / dl * stand + o.vel.z * 0.3, d > 3 ? 'sprint' : 'run', false);
   p.wantFace = Math.atan2(o.pos.x - p.pos.x, o.pos.z - p.pos.z);
+  p.jockey = d < 5; // se pone de perfil y baja el centro de gravedad
   // si el compañero humano esta encima, la IA acompaña sin tirarse
   if (team.human && G.human && G.human.p && Math.hypot(G.human.p.pos.x - o.pos.x, G.human.p.pos.z - o.pos.z) < 4) return;
   p.brain.tk -= h;

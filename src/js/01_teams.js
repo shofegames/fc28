@@ -133,6 +133,7 @@ function buildRoster(club) {
       height: role === 'GK' ? 1.86 + R() * 0.1 : 1.70 + R() * 0.18, build: 0.92 + R() * 0.18, boots: pick(BOOTS), beard: R() < 0.3
     };
   });
+  for (const r of out) r.foot = hashStr(r.name) % 5 === 0 ? 'L' : 'R'; // 1 de cada 5 es zurdo
   club._roster = out;
   return out;
 }

@@ -30,6 +30,11 @@ function keyf(u, keys) {
   return keys[keys.length - 1][1];
 }
 
+// largo de un ciclo de carrera (dos pasos) segun la velocidad: caminar 1,6 m, trotar 2,8 m, sprint 3,9 m (cadencia real ~0,9 / 1,4 / 2,1 ciclos por segundo)
+const gaitLen = sp => clamp(0.9 + 0.55 * sp - 0.022 * sp * sp, 0.9, 4.3);
+// fraccion del ciclo con el pie apoyado: caminando ~60%, en sprint ~27%
+const gaitDuty = sp => clamp(0.64 - 0.05 * sp, 0.27, 0.62);
+
 const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } }

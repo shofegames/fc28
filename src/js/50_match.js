@@ -136,6 +136,7 @@ class Match {
     if (card) this.giveCard(f, card);
     if (adv) { Hud.info('VENTAJA'); this.infoT = G.time + 1.6; return; }
     AU.whistle(1);
+    if (!f.action) f.action = { type: 'protest', t: 0, dur: 1.3, contact: 9, fired: true };
     this.stoppage += 0.25;
     if (inBox) this.setRestart('penalty', team, { x: gx - Math.sign(gx) * PITCH.penX, z: 0 }, { silent: true, delay: card ? 2.6 : 2 });
     else this.setRestart('freekick', team, spot, { silent: true, delay: card ? 2.6 : 1.4 });
@@ -302,6 +303,7 @@ class Match {
     if (ax > PITCH.HL + BALL_R) {
       const sg = Math.sign(b.px);
       const def = G.teams.find(t => Math.sign(t.ownGoalX) === sg), att = def.opp;
+      const pi = G.passInfo; if (pi && pi.shot && pi.from.team === att && !pi.from.action && G.time - pi.t < 3) pi.from.action = { type: 'frustrate', t: 0, dur: 1.6, contact: 9, fired: true };
       if (lt && lt.team === def) this.setRestart('corner', att, { x: sg * (PITCH.HL - 0.35), z: (Math.sign(b.pz) || 1) * (PITCH.HW - 0.35) });
       else this.setRestart('goalkick', def, { x: sg * (PITCH.HL - PITCH.sixX), z: (Math.sign(b.pz) || 1) * 4 });
     }
@@ -320,7 +322,7 @@ class Match {
     Hud.score(team.side);
     Hud.msg('¡GOOOL!', scorer ? (own ? 'En contra · ' + scorer.name : scorer.info.num + ' · ' + scorer.name) + ' · ' + team.club.short : team.club.name);
     Stadium.drawScreen(G.teams[0].club.short + ' ' + G.teams[0].score + ' - ' + G.teams[1].score + ' ' + G.teams[1].club.short);
-    if (scorer && !own) { scorer.action = { type: 'celebrate', t: 0, dur: 4.2, contact: 9, fired: true }; Cam.goal(scorer); }
+    if (scorer && !own) { scorer.action = { type: 'celebrate', t: 0, dur: 4.2, contact: 9, fired: true, style: ['fist', 'airplane', 'knees'][Math.floor(Math.random() * 3)] }; Cam.goal(scorer); }
     else Cam.goal(null);
     for (const p of team.players) if (p !== scorer && !p.isGK && scorer && Math.hypot(p.pos.x - scorer.pos.x, p.pos.z - scorer.pos.z) < 25) p.celebrateWith = scorer;
   }

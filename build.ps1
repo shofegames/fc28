@@ -20,7 +20,7 @@ $tpl = & $read (Join-Path $root 'src\index.html')
 $css = (Files 'css' '*.css' | ForEach-Object { & $read $_ }) -join "`n"
 $js  = (Files 'js' '*.js' | ForEach-Object { "/* ===== " + (Split-Path $_ -Leaf) + " ===== */`n" + (& $read $_) }) -join "`n"
 $dbg = ''
-if ($Dev) { $dbg = "window.__e=s=>eval(s);`n" }
+if ($Dev) { $dbg = "window.__e=s=>eval(s);`n"; if (Test-Path (Join-Path $root 'src\dev')) { $dbg += (Files 'dev' '*.js' | ForEach-Object { & $read $_ }) -join "`n" } }
 $code = "(function(){`n'use strict';`n" + $js + "`n" + $dbg + "})();"
 # numero de version: la ultima de la carpeta versiones (+1 si se guarda una nueva)
 $vdir = Join-Path $root 'versiones'

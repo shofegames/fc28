@@ -131,7 +131,8 @@ function saveCheck(p, dd) {
     p.action = ac && ac.type === 'dive' ? ac : { type: 'catch', t: 0, dur: 0.5, contact: 9, fired: true };
     if (ac && ac.type === 'dive') ac.dur = Math.max(ac.t + 0.5, 0.9);
   } else {
-    // rechazo: la pelota sale hacia afuera
+    // rechazo: la pelota sale hacia afuera (parado, con los puños)
+    if (!ac || ac.type !== 'dive') p.action = { type: 'punch', t: 0, dur: 0.4, contact: 9, fired: true };
     const ad = p.team.attackDir;
     b.launch(ad * (Math.abs(b.vx) * 0.25 + rand(2, 5)), Math.abs(b.vy) * 0.3 + rand(1.5, 5), b.vz * 0.3 + (Math.sign(b.pz - p.pos.z) || 1) * rand(2, 6));
     touchBy(p); b.ignore = p; b.ignoreT = 0.3; p.controlCd = 0.45; G.passInfo = null; AU.touch(); AU.cheer(0.5);

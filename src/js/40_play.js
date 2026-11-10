@@ -68,6 +68,7 @@ function receive(p) {
     if (G.passInfo && G.passInfo.from.team !== p.team) G.passInfo = null;
     return;
   }
+  p._recvY = b.py;
   setOwner(p); touchBy(p);
   // primer toque orientado: el usuario la acomoda hacia donde apunta; la IA hacia adelante
   let fx = 0, fz = 0;
@@ -75,7 +76,7 @@ function receive(p) {
   else if (!p.isGK) { fx = p.team.attackDir * 1.1; }
   b.vx = p.vel.x * 0.85 + rvx * 0.06 + fx; b.vz = p.vel.z * 0.85 + rvz * 0.06 + fz;
   // animacion de recepcion (amortigua con el pie)
-  if (!p.action && rel > 3) p.action = { type: 'trap', t: 0, dur: 0.3, contact: 9, fired: true, foot: Math.random() < 0.3 ? 'L' : 'R', hi: b.py > 0.5 };
+  if (!p.action && rel > 2.5) { const hy = p._recvY != null ? p._recvY : b.py; p.action = { type: 'trap', t: 0, dur: 0.32, contact: 9, fired: true, foot: p.info.foot || 'R', kind: hy > 0.95 ? 'chest' : hy > 0.42 ? 'thigh' : rel < 6 ? 'sole' : 'inside' }; }
   if (b.py > BALL_R + 0.05) b.vy = Math.min(0, b.vy) * 0.3;
   b.wx = b.wy = b.wz = 0; b.trajDirty = true; G.kickSeq++;
   AU.touch();
@@ -134,11 +135,20 @@ function startKick(p, kind, opts, quick) {
   const turn = face == null ? 0 : Math.abs(angWrap(face - p.facing));
   const extra = quick ? 0 : clamp((turn - 0.3) / 12, 0, 0.13);
   const contact = quick ? Math.min(0.06, t[1]) : t[1] + extra;
-  p.action = { type, kind, t: quick ? Math.max(0, t[1] - contact) : 0, dur: t[0] + extra, contact, fired: false, opts, foot: Math.random() < 0.18 ? 'L' : 'R', jump: 1, face };
+  let ty2 = type, dur = t[0] + extra, cont = contact;
+  if (p.isGK && G.ball.held === p && type === 'kick') { ty2 = kind === 'pass' ? 'gkthrow' : 'gkvolley'; dur = ty2 === 'gkthrow' ? 0.62 : 0.72; cont = ty2 === 'gkthrow' ? 0.3 : 0.4; }
+  const foot = p.info.foot || 'R';
+  p.action = { type: ty2, kind, t: quick ? Math.max(0, cont - contact) : 0, dur, contact: cont, fired: false, opts, foot, jump: 1, face };
+  // pie de apoyo: al costado de la pelota (25 cm) y un poquito atras, del lado contrario al pie que patea
+  if (ty2 === 'kick' && kind !== 'knock') {
+    const b = G.ball, fa = face != null ? face : p.facing, side = foot === 'L' ? -1 : 1;
+    const bx = b.px + b.vx * cont * 0.6, bz = b.pz + b.vz * cont * 0.6;
+    p.action.plant = { x: bx + Math.cos(fa) * 0.25 * side - Math.sin(fa) * 0.12, z: bz - Math.sin(fa) * 0.25 * side - Math.cos(fa) * 0.12 };
+  }
   return true;
 }
 function actionFire(p, ac) {
-  if (ac.type === 'kick' || ac.type === 'throw' || ac.type === 'header') executeKick(p, ac.kind, ac.opts);
+  if (ac.type === 'kick' || ac.type === 'throw' || ac.type === 'header' || ac.type === 'gkthrow' || ac.type === 'gkvolley') executeKick(p, ac.kind, ac.opts);
   else if (ac.type === 'tackle') resolveTackle(p);
 }
 function executeKick(p, kind, o) {

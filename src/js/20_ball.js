@@ -100,8 +100,10 @@ class Ball {
     this.prev.set(this.px, this.py, this.pz);
     if (this.held) {
       const p = this.held, f = p.fwd();
-      const hy = p.action && p.action.type === 'throw' ? 2.05 : 1.12;
-      this.px = p.pos.x + f.x * (hy > 2 ? 0.05 : 0.32); this.pz = p.pos.z + f.z * (hy > 2 ? 0.05 : 0.32); this.py = hy;
+      const ac = p.action; let hy = ac && ac.type === 'throw' ? 2.05 : 1.12, fwd = hy > 2 ? 0.05 : 0.32;
+      if (ac && ac.type === 'gkthrow') { const u = clamp(ac.t / ac.contact, 0, 1); hy = keyf(u, [[0, 1.12], [0.75, 1.75], [1, 2.15]]); fwd = keyf(u, [[0, 0.32], [0.75, -0.35], [1, 0.25]]); }
+      if (ac && ac.type === 'gkvolley') { const u = clamp(ac.t / ac.contact, 0, 1); hy = keyf(u, [[0, 1.1], [0.45, 1.0], [1, 0.45]]); fwd = 0.42; }
+      this.px = p.pos.x + f.x * fwd; this.pz = p.pos.z + f.z * fwd; this.py = hy;
       this.vx = p.vel.x; this.vz = p.vel.z; this.vy = 0; this.wx = this.wy = this.wz = 0;
       this.trajN = 0; return;
     }

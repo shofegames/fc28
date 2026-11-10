@@ -73,8 +73,10 @@ class Human {
     const mine = G.owner === p;
     const defending = G.owner && G.owner.team !== this.team && !G.ball.held;
     // defendiendo (como en los juegos de futbol de celular): PASE cambia de jugador, FILTRADO presiona y quita, TIRO barrida
+    p.jockey = false;
     if (defending) {
       this.charge = null; Hud.power(null);
+      p.jockey = Math.hypot(G.owner.pos.x - p.pos.x, G.owner.pos.z - p.pos.z) < 5;
       if (Input.hit('pass') && this.switchCd <= 0) { const c = this.bestCandidate(true); if (c) this.select(c); this.switchCd = 0.2; return; }
       if (Input.btn('through')) {
         const o = G.owner, d = Math.hypot(o.pos.x - p.pos.x, o.pos.z - p.pos.z);

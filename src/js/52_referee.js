@@ -31,7 +31,7 @@ class Official {
     const st = clamp(angWrap(tf - this.facing), -8 * h, 8 * h);
     this.facing = angWrap(this.facing + st); this.turnRate = damp(this.turnRate, st / h, 10, h);
     const vf = sp > 0.05 ? Math.abs(Math.cos(md - this.facing)) : 1;
-    this.phase += sp * h / ((1.0 + sp * 0.17) * (0.55 + 0.45 * vf)) * TAU;
+    this.phase += sp * h / (gaitLen(sp) * (0.55 + 0.45 * vf)) * TAU;
   }
   gesture(type, dur, extra) { this.action = Object.assign({ type, t: 0, dur, contact: 9, fired: true }, extra || {}); }
 }

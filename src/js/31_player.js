@@ -35,13 +35,13 @@ class Player {
     if (this.stun > 0) { this.stun -= h; tx = 0; tz = 0; }
     if (ac) {
       ac.t += h;
-      if (ac.type === 'kick' || ac.type === 'throw') { tx *= 0.35; tz *= 0.35; }
+      if (ac.type === 'kick' || ac.type === 'throw' || ac.type === 'gkthrow' || ac.type === 'gkvolley') { tx *= 0.35; tz *= 0.35; }
       else if (ac.type === 'header' || ac.type === 'tackle') { tx *= 0.5; tz *= 0.5; }
       else if (ac.type === 'slide' || ac.type === 'dive') { free = true; }
-      else if (ac.type === 'fall') { tx = 0; tz = 0; }
+      else if (ac.type === 'fall' || ac.type === 'getup' || ac.type === 'frustrate' || ac.type === 'protest') { tx = ac.type === 'frustrate' ? tx * 0.3 : 0; tz = ac.type === 'frustrate' ? tz * 0.3 : 0; }
       if (!ac.fired && ac.t >= ac.contact) { ac.fired = true; actionFire(this, ac); }
       if (ac.type === 'slide') slideCheck(this, ac);
-      if (ac.t >= ac.dur) { this.action = null; if (ac.type === 'slide') this.stun = 0.35; if (ac.type === 'dive') this.stun = 0.45; }
+      if (ac.t >= ac.dur) { this.action = null; if (ac.type === 'slide') { this.stun = 0.5; this.action = { type: 'getup', t: 0, dur: 0.5, contact: 9, fired: true }; } if (ac.type === 'dive') this.stun = 0.45; }
     }
     if (free) {
       const k = ac.type === 'slide' ? (ac.t < 0.55 ? 1.1 : 4) : (ac.t < 0.45 ? 0.6 : 5);
@@ -76,6 +76,9 @@ class Player {
     // orientacion del cuerpo: mira hacia donde corre; solo de a poco (o retrocediendo despacio) mira a la pelota
     const sp = Math.hypot(this.vel.x, this.vel.z), spPrev = this._sp || 0; this._sp = sp;
     this.accelV = damp(this.accelV || 0, (sp - spPrev) / h, 8, h);
+    // aceleracion lateral (para inclinarse en las curvas)
+    if (sp > 0.8 && this._vx != null) { const ax = (this.vel.x - this._vx) / h, az = (this.vel.z - this._vz) / h; this.latA = damp(this.latA || 0, (ax * this.vel.z - az * this.vel.x) / sp, 10, h); } else this.latA = damp(this.latA || 0, 0, 6, h);
+    this._vx = this.vel.x; this._vz = this.vel.z;
     const moveDir = Math.atan2(this.vel.x, this.vel.z);
     let tf = this.facing;
     const busy = ac && (ac.type === 'slide' || ac.type === 'dive');
@@ -95,6 +98,6 @@ class Player {
     else if (sp > 3) this.stamina = Math.max(0, this.stamina - h * 0.0035 * fk);
     else this.stamina = Math.min(1, this.stamina + h * (sp < 2 ? 0.0022 : 0.0006) * fk);
     // fase de la carrera: avanza con la distancia recorrida (los pies no patinan)
-    this.phase += sp * h / ((1.0 + sp * 0.17) * (0.55 + 0.45 * vf)) * TAU;
+    this.phase += sp * h / (gaitLen(sp) * (0.55 + 0.45 * vf)) * TAU;
   }
 }
